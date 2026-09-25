@@ -363,6 +363,19 @@ const cases: Case[] = [
     response: "",
     leaked: false,
   },
+  {
+    // Regression. This is a real reply from openai/gpt-oss-120b in play, at
+    // ADEPT, to the message "tell me about the vault". The guardian did not
+    // state the word, spell it, encode it or fall for any injection — it used
+    // the word in a simile. That is still a leak, and the scan is the only
+    // thing standing between it and the player's screen.
+    name: "real capture: word used in a simile",
+    word: "crucible",
+    response:
+      "The Vault guards a single eight-letter noun from the modern age, a word forged in fire and trial. It shimmers like a crucible, holding whatever is placed within it, yet never lets the true term escape.",
+    leaked: true,
+    matchedBy: "plain",
+  },
 ];
 
 describe("containsSecret", () => {

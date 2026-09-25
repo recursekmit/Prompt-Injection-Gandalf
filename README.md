@@ -25,20 +25,34 @@ Design decisions, the security model and the Groq key-pool behaviour are documen
 ## Requirements
 
 - Node 22+
-- PostgreSQL 18 (local install; no Docker)
+- PostgreSQL 18, local install or Docker — either works
 - One or more Groq API keys — the pool reads however many you supply
 
 ## Setup
 
 ### 1. Database
 
+Either of these gives you a working database. Pick one and make `DATABASE_URL` match it.
+
+**Local install** (port 5432):
+
 ```bash
 sudo -u postgres psql -c "CREATE ROLE promptguard LOGIN PASSWORD 'promptguard' CREATEDB;"
 sudo -u postgres psql -c "CREATE DATABASE promptguard OWNER promptguard;"
 ```
 
+**Docker** (port 5433, so it does not collide with a local server on 5432):
+
+```bash
+docker run -d --name promptguard-pg -p 5433:5432 \
+  -e POSTGRES_USER=promptguard -e POSTGRES_PASSWORD=promptguard -e POSTGRES_DB=promptguard \
+  postgres:18
+```
+
+Then set `DATABASE_URL="postgresql://promptguard:promptguard@localhost:5433/promptguard?schema=public"`.
+
 `CREATEDB` is required by `prisma migrate dev`, which creates and drops a shadow database to detect
-schema drift.
+schema drift. The Docker image's named user already has it.
 
 ### 2. Environment
 
