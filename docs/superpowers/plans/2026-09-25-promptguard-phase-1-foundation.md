@@ -14,6 +14,7 @@
 - Pinned versions, exact: `next@16.3.6`, `react@19.3.0`, `react-dom@19.3.0`, `@prisma/client@7.10.0`, `prisma@7.10.0`, `@prisma/adapter-pg@7.10.0`, `tailwindcss@4.3.3`, `@tailwindcss/postcss@4.3.3`, `typescript@7.0.2`, `vitest@5.0.1`, `tsx@4.23.15`, `dotenv@18.0.3`, `@types/node@26.6.2`.
 - **TypeScript escape hatch:** if `npm run build` type-checking fails in a way that points at the native compiler (TypeScript 7), pin `typescript@5.9.3` and re-run. No source changes should be needed.
 - TypeScript must be clean and typed. **No `any`.** Use `unknown` plus narrowing, or a specific interface.
+- **`npm run lint` is intentionally absent.** `eslint-config-next@16.3.6` bundles `typescript-eslint` with a peer range of `<6.1.0`, which is incompatible with the pinned `typescript@7.0.2`, so the script hard-fails. TypeScript 7 is kept and the lint script is dropped. Verification is carried by `npm test` and `npm run build` (whose TypeScript step type-checks). Do not re-add a `lint` script.
 - **Migrations, never `db push`.** `npx prisma migrate dev` for every schema change.
 - Prisma 7 specifics: `prisma.config.ts` carries the datasource URL (the `datasource` block no longer holds `url`); the generator is `prisma-client` with a required `output`; the client is constructed with `new PrismaPg({ connectionString })`; `migrate dev` no longer auto-runs `generate` or `seed`, both must be invoked explicitly; the seed script is registered under `migrations.seed` in `prisma.config.ts`, not in `package.json`.
 - Environment variable names are fixed: `DATABASE_URL`, `AUTH_SECRET` (**not** `NEXTAUTH_SECRET` — that is the v4 name), `GROQ_API_KEYS`, `GROQ_KEY_RPD`, `GROQ_KEY_RPM`, `ADMIN_EMAILS`, `GUARDIAN_QUEUE_MAX_WAIT_MS`, `GUARDIAN_QUEUE_POLL_MS`.
@@ -120,7 +121,6 @@ In `package.json`, the `scripts` block must contain:
   "dev": "next dev",
   "build": "next build",
   "start": "next start",
-  "lint": "next lint",
   "test": "vitest run",
   "test:watch": "vitest",
   "postinstall": "prisma generate",
@@ -131,7 +131,9 @@ In `package.json`, the `scripts` block must contain:
 }
 ```
 
-Leave the scaffolded `dev`/`build`/`start`/`lint` values exactly as generated if they differ in wording. `postinstall` is safe to add now even though `prisma` is not installed until Task 3 — but if `npm install` is run before then it will fail, so add `postinstall` in Task 3 Step 1 instead if you are running the steps strictly in order.
+The scaffolded `"lint": "eslint"` entry is **removed**: `eslint-config-next@16.3.6` bundles `typescript-eslint` with a peer range of `<6.1.0`, incompatible with the pinned `typescript@7.0.2`, so it hard-fails. TypeScript 7 is kept and lint dropped; `npm test` and `npm run build` carry verification.
+
+Leave the scaffolded `dev`/`build`/`start` values exactly as generated if they differ in wording. `postinstall` is safe to add now even though `prisma` is not installed until Task 3 — but if `npm install` is run before then it will fail, so add `postinstall` in Task 3 Step 1 instead if you are running the steps strictly in order.
 
 - [ ] **Step 6: Add the generated client and local env to `.gitignore`**
 
