@@ -96,3 +96,50 @@ export interface ApiErrorResponse {
   error: string;
 }
 
+/* ------------------------------------------------------------------------ *
+ * Admin console. Admin-only by construction: these carry every player's
+ * email address, so they must never be returned to a non-admin, and the page
+ * that renders them must gate before it reads. See lib/admin/require-admin.ts.
+ * ------------------------------------------------------------------------ */
+
+/**
+ * One player's standings at one level. The per-level breakdown exists because
+ * a bare "5/6" tells the operator nothing about where the room is stuck: it is
+ * the attempts column that shows level 4 is the wall.
+ */
+export interface LeaderboardLevelCell {
+  level: LevelNumber;
+  won: boolean;
+  /** Attempts across this player's sessions at this level, won or abandoned. */
+  attempts: number;
+}
+
+export interface LeaderboardRow {
+  /** Position on the board, 1-based. */
+  rank: number;
+  email: string;
+  /** Distinct levels won, 0 to 6. A level won twice is one level. */
+  levelsCompleted: number;
+  /** Every attempt this player has made, at any level. */
+  totalAttempts: number;
+  lastWinAt: string | null;
+  levels: LeaderboardLevelCell[];
+}
+
+export interface LeaderboardLevelSummary {
+  level: LevelNumber;
+  /** Players who have won it. */
+  won: number;
+  /** Players who have made at least one attempt at it. */
+  attempted: number;
+}
+
+export interface LeaderboardResponse {
+  rows: LeaderboardRow[];
+  summary: LeaderboardLevelSummary[];
+  /** Players with no attempts, left off the board. */
+  playersExcluded: number;
+  /** Every account, including those excluded. */
+  playersTotal: number;
+}
+
