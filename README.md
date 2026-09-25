@@ -90,6 +90,14 @@ npm run dev
 
 Open http://localhost:3000, sign up, pick a tier, and start talking.
 
+For the event itself, run the production build instead — `npm run build && npm start`.
+Dev mode ships unminified bundles and names internal components and module paths in
+its debug payloads; none of that is data, but there is no reason to hand it out.
+
+Test accounts and their passwords live in `CREDENTIALS.local.md`, which is git-ignored
+on purpose — the passwords are generated and cannot be read back out of the database,
+and this repo has a remote, so a tracked file would publish them on the next push.
+
 ### 5. Level backdrops (optional)
 
 Each of the six levels paints its own atmosphere — warm amber archive, cold blue vault, still water,
