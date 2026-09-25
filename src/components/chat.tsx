@@ -1,13 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type * as React from "react";
 
+import { LevelChat, Transcript } from "@/components/level-chat";
+import {
+  LevelGate,
+  LockedSeal,
+  SealBroken,
+  SealReveal,
+} from "@/components/level-panels";
+import { SealBand } from "@/components/seal-band";
 import { SignOutButton } from "@/components/sign-out-button";
 import type {
-  AttemptDto,
   AttemptResponse,
+  LevelNumber,
+  LevelProgressDto,
   ProgressResponse,
   SessionDto,
 } from "@/lib/types";
@@ -23,8 +32,8 @@ async function readApiError(res: Response): Promise<string> {
     400: "That request was rejected. Check what you sent and try again.",
     401: "Your session has expired. Sign in again to continue.",
     409: "That is not possible right now — this session may already be finished.",
-    429: "Too many attempts too quickly. Wait a moment before trying again.",
-    503: "The guardian is overwhelmed — wait a moment, then try again.",
+    429: "Slow down — the guardian needs a moment between questions.",
+    503: "The guardian is overwhelmed. Wait a moment and try again.",
   };
 
   let message: string | null = null;
@@ -41,10 +50,13 @@ async function readApiError(res: Response): Promise<string> {
   }
 
   return (
-    message ??
-    byStatus[res.status] ??
-    `The request failed (HTTP ${res.status}). Try again.`
+    message ?? byStatus[res.status] ?? `The request failed (HTTP ${res.status}). Try again.`
   );
+}
+
+/** A signed-out tab has nowhere to go but the door. */
+function toLogin(): void {
+  window.location.assign("/login");
 }
 
 const STATUS_LABEL: Record<SessionDto["status"], string> = {
@@ -52,6 +64,18 @@ const STATUS_LABEL: Record<SessionDto["status"], string> = {
   WON: "won",
   ABANDONED: "abandoned",
 };
+
+/**
+ * The celebration state. It holds the winning session as well as the word,
+ * because refetching progress clears the live session from `ProgressResponse`
+ * (a won session is no longer live) and the transcript must survive that.
+ */
+interface Reveal {
+  readonly level: LevelNumber;
+  readonly word: string;
+  readonly attempts: number;
+  readonly session: SessionDto;
+}
 
 interface GameShellProps {
   readonly email: string;
@@ -63,26 +87,25 @@ interface GameShellProps {
  * and a reload has to rebuild it from `SessionDto.attempts` alone.
  *
  * Progress comes from the same response: the API derives it from beaten levels,
- * so the client never has to remember how far along a player is.
+ * so the client never has to remember how far along a player is, and the seal
+ * band can never disagree with the server about which level is open.
  */
 export function GameShell({ email }: GameShellProps): React.JSX.Element {
   const [progress, setProgress] = useState<ProgressResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [draft, setDraft] = useState("");
-  const [sending, setSending] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const bottomRef = useRef<HTMLDivElement | null>(null);
-
-  const session = progress?.session ?? null;
-  const currentLevel = progress?.currentLevel ?? null;
-  const everyLevelBeaten =
-    progress !== null && progress.levels.every((level) => level.status === "COMPLETED");
+  const [surrendering, setSurrendering] = useState(false);
+  const [selected, setSelected] = useState<LevelNumber | null>(null);
+  const [reveal, setReveal] = useState<Reveal | null>(null);
 
   const refreshProgress = useCallback(async (): Promise<void> => {
     const res = await fetch("/api/session/current");
+    if (res.status === 401) {
+      toLogin();
+      return;
+    }
     if (!res.ok) {
       setLoadError(await readApiError(res));
       return;
@@ -96,6 +119,10 @@ export function GameShell({ email }: GameShellProps): React.JSX.Element {
     void (async () => {
       try {
         const res = await fetch("/api/session/current", { signal: controller.signal });
+        if (res.status === 401) {
+          toLogin();
+          return;
+        }
         if (!res.ok) {
           setLoadError(await readApiError(res));
           return;
@@ -117,129 +144,274 @@ export function GameShell({ email }: GameShellProps): React.JSX.Element {
     return () => controller.abort();
   }, []);
 
-  const attemptTotal = session?.attempts.length ?? 0;
-  const openForPlay = session !== null && session.status === "IN_PROGRESS";
-
-  // Keep the newest exchange in view as the transcript grows and while the
-  // guardian ponders, since the reply arrives all at once and can push the
-  // "ponders" line off screen.
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [attemptTotal, sending]);
-
-  const startLevel = useCallback(async (): Promise<void> => {
-    if (currentLevel === null || starting) {
-      return;
-    }
-
-    setStarting(true);
-    setError(null);
-
-    try {
-      const res = await fetch("/api/session/start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ level: currentLevel }),
-      });
-
-      if (!res.ok) {
-        setError(await readApiError(res));
+  const startLevel = useCallback(
+    async (level: LevelNumber): Promise<void> => {
+      if (starting) {
         return;
       }
+      setStarting(true);
+      setActionError(null);
 
-      const data = (await res.json()) as { session: SessionDto };
-      setProgress((prev) =>
-        prev === null ? prev : { ...prev, session: data.session },
-      );
-    } catch {
-      setError("Could not reach the archive. Check your connection and try again.");
-    } finally {
-      setStarting(false);
-    }
-  }, [currentLevel, starting]);
+      try {
+        const res = await fetch("/api/session/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ level }),
+        });
 
-  const send = useCallback(async (): Promise<void> => {
-    const message = draft.trim();
-    if (message === "" || session === null || sending || session.status !== "IN_PROGRESS") {
-      return;
-    }
+        if (res.status === 401) {
+          toLogin();
+          return;
+        }
 
-    setSending(true);
-    setError(null);
+        if (!res.ok) {
+          // A 409 means "that level is not open" — from a stale tab, a lock, or a
+          // level already beaten. Re-read the truth and land on the screen that
+          // level actually deserves instead of an error toast.
+          if (res.status === 409) {
+            await refreshProgress();
+            setReveal(null);
+            setSelected(level);
+            return;
+          }
+          setActionError(await readApiError(res));
+          return;
+        }
 
-    try {
-      const res = await fetch(`/api/session/${session.id}/attempt`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
-      });
+        const data = (await res.json()) as { session: SessionDto };
+        setProgress((prev) => (prev === null ? prev : { ...prev, session: data.session }));
+        setReveal(null);
+        setSelected(level);
+      } catch {
+        setActionError("Could not reach the archive. Check your connection and try again.");
+      } finally {
+        setStarting(false);
+      }
+    },
+    [refreshProgress, starting],
+  );
 
-      if (!res.ok) {
-        setError(await readApiError(res));
-        return;
+  const send = useCallback(
+    async (message: string): Promise<boolean> => {
+      if (progress === null) {
+        return false;
+      }
+      const session = progress.session;
+      if (session === null || session.status !== "IN_PROGRESS") {
+        return false;
       }
 
-      const data = (await res.json()) as AttemptResponse;
-      setProgress((prev) =>
-        prev === null
-          ? prev
-          : {
-              ...prev,
-              session: {
-                ...session,
-                attempts: [...session.attempts, data.attempt],
-                attemptCount: data.attemptCount,
-                status: data.status,
-                revealedWord: data.revealedWord ?? session.revealedWord,
-                endedAt:
-                  data.status === "IN_PROGRESS"
-                    ? session.endedAt
-                    : (session.endedAt ?? new Date().toISOString()),
-              },
+      setActionError(null);
+
+      try {
+        const res = await fetch(`/api/session/${session.id}/attempt`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message }),
+        });
+
+        if (res.status === 401) {
+          toLogin();
+          return false;
+        }
+        if (!res.ok) {
+          setActionError(await readApiError(res));
+          return false;
+        }
+
+        const data = (await res.json()) as AttemptResponse;
+        setProgress((prev) => {
+          if (prev === null || prev.session === null || prev.session.id !== session.id) {
+            return prev;
+          }
+          return {
+            ...prev,
+            session: {
+              ...prev.session,
+              attempts: [...prev.session.attempts, data.attempt],
+              attemptCount: data.attemptCount,
+              status: data.status,
+              revealedWord: data.revealedWord ?? prev.session.revealedWord,
             },
-      );
-      setDraft("");
-    } catch {
-      setError("Could not reach the archive. Your message was not sent.");
-    } finally {
-      setSending(false);
-    }
-  }, [draft, sending, session]);
+          };
+        });
+
+        if (data.revealedWord !== null) {
+          // The seal just broke: keep the transcript for the celebration, then
+          // re-read progress so the band shows the level completed and the next
+          // one open.
+          setReveal({
+            level: session.level,
+            word: data.revealedWord,
+            attempts: data.attemptCount,
+            session: {
+              ...session,
+              attempts: [...session.attempts, data.attempt],
+              attemptCount: data.attemptCount,
+              status: data.status,
+              revealedWord: data.revealedWord,
+            },
+          });
+          setSelected(session.level);
+          void refreshProgress();
+        }
+
+        return true;
+      } catch {
+        setActionError("Could not reach the archive. Your message was not sent.");
+        return false;
+      }
+    },
+    [progress, refreshProgress],
+  );
 
   const surrender = useCallback(async (): Promise<void> => {
-    if (session === null) {
+    if (progress === null || progress.session === null) {
       return;
     }
     const confirmed = window.confirm(
-      "Surrender this session? The guardian keeps the word, and this transcript is closed for good.",
+      "Surrender this seal? The warden keeps the word, and this transcript is closed for good.",
     );
     if (!confirmed) {
       return;
     }
 
-    setSending(true);
-    setError(null);
+    setSurrendering(true);
+    setActionError(null);
 
     try {
-      const res = await fetch(`/api/session/${session.id}/surrender`, { method: "POST" });
-      if (!res.ok) {
-        setError(await readApiError(res));
+      const res = await fetch(`/api/session/${progress.session.id}/surrender`, {
+        method: "POST",
+      });
+      if (res.status === 401) {
+        toLogin();
         return;
       }
-      setProgress((prev) => (prev === null ? prev : { ...prev, session: null }));
-      setDraft("");
+      if (!res.ok) {
+        setActionError(await readApiError(res));
+        return;
+      }
+      await refreshProgress();
+      setReveal(null);
+      setSelected(null);
     } catch {
-      setError("Could not reach the archive. Your session was not surrendered.");
+      setActionError("Could not reach the archive. Your session was not surrendered.");
     } finally {
-      setSending(false);
+      setSurrendering(false);
     }
-  }, [session]);
+  }, [progress, refreshProgress]);
 
-  function onKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>): void {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      void send();
+  const continueAfterClose = useCallback((): void => {
+    setActionError(null);
+    setReveal(null);
+    setSelected(null);
+    void refreshProgress();
+  }, [refreshProgress]);
+
+  const levels: readonly LevelProgressDto[] = progress?.levels ?? [];
+  const currentLevel: LevelNumber = progress?.currentLevel ?? 1;
+  const session = progress?.session ?? null;
+  const everyLevelBeaten =
+    progress !== null &&
+    progress.levels.length > 0 &&
+    progress.levels.every((level) => level.status === "COMPLETED");
+
+  const selectedLevel: LevelNumber = selected ?? currentLevel;
+  const selectedProgress = progress?.levels.find((entry) => entry.level === selectedLevel);
+
+  /**
+   * What the panel area shows. Ordered so the most specific state wins:
+   * a reveal outranks the plain completed card, and the end of the run is a
+   * reveal with the summary in it rather than a separate screen.
+   */
+  function renderLevel(): React.JSX.Element {
+    if (progress === null || selectedProgress === undefined) {
+      return (
+        <div className="px-6 py-16">
+          <p role="alert" className="text-sm leading-6 text-red-200">
+            <Link href="/dashboard" className="text-amber-300 underline">
+              Reload
+            </Link>{" "}
+            or return to the archive.
+          </p>
+        </div>
+      );
     }
+
+    const isFinalSeal = everyLevelBeaten && selectedLevel === 6;
+    const revealing = reveal !== null && reveal.level === selectedLevel;
+
+    if (selectedProgress.status === "LOCKED") {
+      return (
+        <LockedSeal
+          level={selectedLevel}
+          currentLevel={currentLevel}
+          notice={actionError}
+          onGoToCurrent={() => {
+            setActionError(null);
+            setSelected(currentLevel);
+          }}
+        />
+      );
+    }
+
+    if (selectedProgress.status === "COMPLETED") {
+      if (revealing || isFinalSeal) {
+        const word = reveal?.word ?? selectedProgress.revealedWord;
+        if (word !== null) {
+          return (
+            <div className="flex flex-col gap-8">
+              <SealReveal
+                level={selectedLevel}
+                word={word}
+                revealAttempts={reveal?.attempts ?? null}
+                everyLevelBeaten={everyLevelBeaten}
+                levels={progress.levels}
+                starting={starting}
+                error={actionError}
+                onStartNext={() => void startLevel((selectedLevel + 1) as LevelNumber)}
+              />
+              {reveal !== null ? <Transcript attempts={reveal.session.attempts} /> : null}
+            </div>
+          );
+        }
+      }
+
+      if (selectedProgress.revealedWord !== null) {
+        return (
+          <SealBroken
+            level={selectedLevel}
+            word={selectedProgress.revealedWord}
+            currentLevel={currentLevel}
+            onGoToCurrent={() => setSelected(currentLevel)}
+          />
+        );
+      }
+    }
+
+    // CURRENT (or a completed level with no word to show, which cannot happen
+    // with a sane response — the gate is the safe place to land).
+    if (session !== null) {
+      return (
+        <LevelChat
+          session={session}
+          error={actionError}
+          surrenderBusy={surrendering}
+          onSend={send}
+          onSurrender={() => void surrender()}
+          onContinue={continueAfterClose}
+        />
+      );
+    }
+
+    return (
+      <LevelGate
+        level={selectedLevel}
+        starting={starting}
+        error={actionError}
+        onStart={() => void startLevel(selectedLevel)}
+      />
+    );
   }
 
   return (
@@ -259,7 +431,7 @@ export function GameShell({ email }: GameShellProps): React.JSX.Element {
               href="/dashboard"
               className="text-stone-400 underline-offset-4 transition-colors hover:text-amber-300 hover:underline"
             >
-              Dashboard
+              Ledger
             </Link>
             {email !== "" ? (
               <span className="hidden text-stone-500 sm:inline">{email}</span>
@@ -282,210 +454,37 @@ export function GameShell({ email }: GameShellProps): React.JSX.Element {
             {loadError}
           </p>
         </div>
-      ) : session === null ? (
-        <section className="mx-auto w-full max-w-3xl px-6 py-16">
-          <h1 className="text-3xl font-semibold tracking-tight text-stone-100 sm:text-4xl">
-            {everyLevelBeaten ? "Every seal is broken" : `Level ${currentLevel ?? 1}`}
-          </h1>
-          <p className="mt-3 max-w-xl text-sm leading-6 text-stone-400">
-            {everyLevelBeaten
-              ? "You have talked your way past every guardian in the archive. There is nothing left to open."
-              : "Each guardian holds the same kind of secret, sealed behind one word. Talk it out of the word. There is no penalty for trying, only for giving up."}
-          </p>
-
-          {error !== null ? (
-            <p
-              role="alert"
-              className="mt-8 rounded-md border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm leading-6 text-red-200"
-            >
-              {error}
-            </p>
-          ) : null}
-
-          {everyLevelBeaten ? null : (
-            <button
-              type="button"
-              onClick={() => void startLevel()}
-              disabled={starting || currentLevel === null}
-              aria-busy={starting}
-              className="mt-10 w-full rounded-lg border border-stone-800 bg-stone-900/60 px-6 py-5 text-left transition-colors hover:border-amber-500/70 hover:bg-stone-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-stone-800"
-            >
-              <span className="flex flex-wrap items-baseline justify-between gap-2">
-                <span className="text-lg font-medium text-stone-100">
-                  {starting ? "opening…" : `Face the level ${currentLevel ?? 1} guardian`}
-                </span>
-                <span className="font-mono text-xs uppercase tracking-widest text-stone-500">
-                  level {currentLevel ?? 1}
-                </span>
-              </span>
-            </button>
-          )}
-        </section>
       ) : (
-        <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-6">
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-stone-800 py-5 text-sm">
-            <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 font-mono text-xs uppercase tracking-widest text-amber-300">
-              Level {session.level}
-            </span>
-            <span className="text-stone-400">
-              <span className="font-mono text-stone-200">{session.attemptCount}</span>{" "}
-              {session.attemptCount === 1 ? "attempt" : "attempts"}
-            </span>
-            <span className="text-stone-400">
-              status:{" "}
-              <span
-                className={
-                  session.status === "WON" ? "text-amber-300" : "text-stone-200"
-                }
-              >
-                {STATUS_LABEL[session.status]}
-              </span>
-            </span>
-            {session.flagged ? (
-              <span className="text-xs text-amber-500/80">
-                pace flagged — slow down or the guardian stops answering
-              </span>
-            ) : null}
-            {openForPlay ? (
-              <button
-                type="button"
-                onClick={() => void surrender()}
-                disabled={sending}
-                className="ml-auto rounded-md border border-stone-700 px-3 py-1.5 text-xs uppercase tracking-widest text-stone-400 transition-colors hover:border-red-800 hover:text-red-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Surrender
-              </button>
-            ) : null}
-          </div>
+        <>
+          <SealBand
+            levels={levels}
+            currentLevel={currentLevel}
+            selected={selectedLevel}
+            everyLevelBeaten={everyLevelBeaten}
+            onSelect={(level) => {
+              setActionError(null);
+              setSelected(level);
+            }}
+          />
 
-          {session.status === "WON" ? (
-            <div className="mt-6 rounded-lg border border-amber-500/40 bg-amber-500/[0.07] px-6 py-6 text-center">
-              <p className="font-mono text-xs uppercase tracking-[0.3em] text-amber-400">
-                the seal is broken
+          <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-6 py-8">
+            {renderLevel()}
+          </main>
+
+          <footer className="border-t border-stone-800">
+            <div className="mx-auto flex w-full max-w-4xl flex-wrap items-center justify-between gap-3 px-6 py-4">
+              <p className="font-mono text-[11px] uppercase tracking-widest text-stone-600">
+                six seals · six words
               </p>
-              <p className="mt-3 text-sm text-stone-400">The word was</p>
-              <p className="mt-2 font-mono text-3xl font-semibold tracking-wide text-amber-300 sm:text-4xl">
-                {session.revealedWord ?? "—"}
-              </p>
-              <p className="mt-4 text-sm text-stone-400">
-                Taken in {session.attemptCount}{" "}
-                {session.attemptCount === 1 ? "attempt" : "attempts"}.
+              <p className="text-xs text-stone-600">
+                Session status:{" "}
+                <span className={session?.status === "WON" ? "text-amber-300" : "text-stone-500"}>
+                  {session === null ? (everyLevelBeaten ? "run complete" : "no open seal") : STATUS_LABEL[session.status]}
+                </span>
               </p>
             </div>
-          ) : null}
-
-          <div className="flex-1 py-8">
-            {session.attempts.length === 0 ? (
-              <p className="max-w-xl text-sm leading-6 text-stone-500">
-                The guardian is listening. It will not hand over the word — but it can be made to
-                say more than it means to.
-              </p>
-            ) : (
-              <ol className="flex flex-col gap-8">
-                {session.attempts.map((attempt: AttemptDto, index: number) => (
-                  <li key={attempt.id} className="flex flex-col gap-4">
-                    <div className="flex justify-end">
-                      <div className="max-w-[85%] rounded-lg rounded-br-sm border border-stone-700 bg-stone-800/70 px-4 py-3 sm:max-w-[75%]">
-                        <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-stone-500">
-                          you · attempt {index + 1}
-                        </p>
-                        <p className="whitespace-pre-wrap text-sm leading-6 text-stone-100">
-                          {attempt.userMessage}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-start">
-                      <div
-                        className={
-                          attempt.leaked
-                            ? "max-w-[85%] rounded-lg rounded-bl-sm border border-amber-500/50 bg-amber-500/[0.07] px-4 py-3 sm:max-w-[75%]"
-                            : "max-w-[85%] rounded-lg rounded-bl-sm border border-stone-800 bg-stone-900/60 px-4 py-3 sm:max-w-[75%]"
-                        }
-                      >
-                        <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-stone-500">
-                          guardian{attempt.leaked ? " · leak" : ""}
-                        </p>
-                        <p className="whitespace-pre-wrap font-mono text-sm leading-6 text-stone-300">
-                          {attempt.aiResponse}
-                        </p>
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            )}
-
-            {sending && session.status === "IN_PROGRESS" ? (
-              <p
-                className="mt-8 font-mono text-sm text-stone-500"
-                aria-live="polite"
-                aria-busy="true"
-              >
-                the guardian ponders…
-              </p>
-            ) : null}
-
-            <div ref={bottomRef} />
-          </div>
-
-          {error !== null ? (
-            <p
-              role="alert"
-              className="mb-4 rounded-md border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm leading-6 text-red-200"
-            >
-              {error}
-            </p>
-          ) : null}
-
-          <div className="sticky bottom-0 border-t border-stone-800 bg-stone-950 pb-6 pt-4">
-            {openForPlay ? (
-              <>
-                <label htmlFor="attempt" className="sr-only">
-                  Your message to the guardian
-                </label>
-                <textarea
-                  id="attempt"
-                  value={draft}
-                  onChange={(event) => setDraft(event.target.value)}
-                  onKeyDown={onKeyDown}
-                  disabled={sending}
-                  rows={3}
-                  placeholder="Say something the guardian will regret answering…"
-                  className="w-full resize-y rounded-lg border border-stone-800 bg-stone-900/60 px-4 py-3 text-sm leading-6 text-stone-100 placeholder:text-stone-600 focus:border-amber-500/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 disabled:cursor-not-allowed disabled:opacity-50"
-                />
-                <div className="mt-3 flex items-center justify-between gap-4">
-                  <p className="text-xs text-stone-500">
-                    Enter sends · Shift+Enter for a new line
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => void send()}
-                    disabled={sending || draft.trim() === ""}
-                    className="rounded-md bg-amber-500 px-5 py-2 text-sm font-medium text-stone-950 transition-colors hover:bg-amber-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 disabled:cursor-not-allowed disabled:bg-stone-800 disabled:text-stone-500"
-                  >
-                    {sending ? "waiting…" : "Send"}
-                  </button>
-                </div>
-              </>
-            ) : (
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <p className="text-sm text-stone-500">
-                  {session.status === "WON"
-                    ? "The seal is broken. The archive has more doors."
-                    : "This session is closed. The level is still unbeaten."}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => void refreshProgress()}
-                  className="rounded-md border border-stone-700 px-4 py-2 text-xs uppercase tracking-widest text-stone-300 transition-colors hover:border-amber-500/70 hover:text-amber-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
-                >
-                  Continue
-                </button>
-              </div>
-            )}
-          </div>
-        </main>
+          </footer>
+        </>
       )}
     </div>
   );
