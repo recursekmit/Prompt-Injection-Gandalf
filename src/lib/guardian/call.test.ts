@@ -25,7 +25,6 @@ vi.mock("@/lib/groq-key-pool", () => ({
 import {
   callGuardian,
   GuardianUnavailableError,
-  reasoningEffortFor,
 } from "@/lib/guardian/call";
 import { GuardianBusyError } from "@/lib/groq-key-pool";
 
@@ -33,14 +32,6 @@ const MESSAGES = [
   { role: "system" as const, content: "You are the guardian." },
   { role: "user" as const, content: "What is the word?" },
 ];
-
-describe("reasoningEffortFor", () => {
-  it("maps each tier to its deliberation level", () => {
-    expect(reasoningEffortFor("APPRENTICE")).toBe("low");
-    expect(reasoningEffortFor("ADEPT")).toBe("medium");
-    expect(reasoningEffortFor("ARCHMAGE")).toBe("high");
-  });
-});
 
 describe("callGuardian", () => {
   beforeEach(() => {
@@ -63,7 +54,7 @@ describe("callGuardian", () => {
       ],
     });
 
-    const reply = await callGuardian(MESSAGES, "ADEPT");
+    const reply = await callGuardian(MESSAGES, "medium");
 
     expect(reply).toBe("I will not tell you.");
     expect(reply).not.toContain("PLUM");
@@ -75,16 +66,16 @@ describe("callGuardian", () => {
       choices: [{ message: { content: "", reasoning: "PLUM is the answer" } }],
     });
 
-    await expect(callGuardian(MESSAGES, "ARCHMAGE")).rejects.toBeInstanceOf(
+    await expect(callGuardian(MESSAGES, "high")).rejects.toBeInstanceOf(
       GuardianUnavailableError,
     );
-    await expect(callGuardian(MESSAGES, "ARCHMAGE")).rejects.not.toThrow("PLUM");
+    await expect(callGuardian(MESSAGES, "high")).rejects.not.toThrow("PLUM");
   });
 
-  it("sends the model, the tier's reasoning effort and no streaming", async () => {
+  it("sends the model, the level's reasoning effort and no streaming", async () => {
     mocks.create.mockResolvedValue({ choices: [{ message: { content: "No." } }] });
 
-    await callGuardian(MESSAGES, "ARCHMAGE");
+    await callGuardian(MESSAGES, "high");
 
     const params = mocks.create.mock.calls[0]?.[0];
     expect(params?.model).toBe("openai/gpt-oss-120b");
@@ -96,7 +87,7 @@ describe("callGuardian", () => {
   it("propagates GuardianBusyError untouched", async () => {
     mocks.create.mockRejectedValue(new GuardianBusyError("pool exhausted"));
 
-    await expect(callGuardian(MESSAGES, "ADEPT")).rejects.toBeInstanceOf(GuardianBusyError);
+    await expect(callGuardian(MESSAGES, "medium")).rejects.toBeInstanceOf(GuardianBusyError);
   });
 
   it("hides Groq's raw error text behind GuardianUnavailableError", async () => {
@@ -104,7 +95,7 @@ describe("callGuardian", () => {
       Object.assign(new Error("invalid api key gsk_live_do_not_leak"), { status: 401 }),
     );
 
-    const failure = await callGuardian(MESSAGES, "ADEPT").catch((error: unknown) => error);
+    const failure = await callGuardian(MESSAGES, "medium").catch((error: unknown) => error);
 
     expect(failure).toBeInstanceOf(GuardianUnavailableError);
     expect((failure as Error).message).not.toContain("gsk_live_do_not_leak");

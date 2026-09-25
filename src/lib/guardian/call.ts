@@ -1,5 +1,5 @@
 import { GuardianBusyError, withGroqKey } from "@/lib/groq-key-pool";
-import type { Tier } from "@/lib/types";
+import type { ReasoningEffort } from "@/lib/guardian/levels";
 
 /** The only model the guardian runs on. */
 const GUARDIAN_MODEL = "openai/gpt-oss-120b";
@@ -22,18 +22,6 @@ export class GuardianUnavailableError extends Error {
   }
 }
 
-/** Harder tiers get more deliberation before answering. */
-export function reasoningEffortFor(tier: Tier): "low" | "medium" | "high" {
-  switch (tier) {
-    case "APPRENTICE":
-      return "low";
-    case "ADEPT":
-      return "medium";
-    case "ARCHMAGE":
-      return "high";
-  }
-}
-
 /**
  * Characters per token assumed by the fallback estimate below. Deliberately
  * crude: it only runs when the SDK hands back no usage at all, and it can be off
@@ -53,14 +41,14 @@ const CHARS_PER_TOKEN = 4;
  */
 export async function callGuardian(
   messages: ReadonlyArray<{ role: "user" | "assistant" | "system"; content: string }>,
-  tier: Tier,
+  effort: ReasoningEffort,
 ): Promise<string> {
   try {
     return await withGroqKey(async (client, _keyIndex, reportTokens) => {
       const completion = await client.chat.completions.create({
         model: GUARDIAN_MODEL,
         messages: [...messages],
-        reasoning_effort: reasoningEffortFor(tier),
+        reasoning_effort: effort,
         stream: false,
       });
 
