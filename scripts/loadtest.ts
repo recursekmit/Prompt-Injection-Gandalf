@@ -30,7 +30,7 @@ interface Options {
 }
 
 const DEFAULT_OPTIONS = {
-  baseUrl: "http://localhost:3000",
+  baseUrl: "http://localhost:3200",
   concurrency: 8,
   totalRequests: 120,
 } as const;

@@ -88,7 +88,9 @@ The seed command is registered in `prisma.config.ts` under `migrations.seed`, no
 npm run dev
 ```
 
-Open http://localhost:3000, sign up, pick a tier, and start talking.
+Open http://localhost:**3200**, sign up, pick a tier, and start talking. The port is
+3200 rather than the usual 3000 because 3000 is wanted for other work on this
+machine; it is pinned in `package.json` for both `dev` and `start`.
 
 For the event itself, run the production build instead — `npm run build && npm start`.
 Dev mode ships unminified bundles and names internal components and module paths in
