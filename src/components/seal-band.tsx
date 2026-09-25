@@ -79,7 +79,7 @@ function Ring(): React.JSX.Element {
   return (
     <span
       aria-hidden="true"
-      className="block h-3 w-3 rounded-full border-2 border-amber-400 bg-amber-400/10"
+      className="block h-3 w-3 rounded-full border-2 border-[#9efe00] bg-[rgba(158,254,0,0.12)]"
     />
   );
 }
@@ -89,29 +89,29 @@ function Pulse(): React.JSX.Element {
   return (
     <span
       aria-hidden="true"
-      className="pointer-events-none absolute inset-0 hidden rounded-lg ring-2 ring-amber-400/40 motion-safe:block motion-safe:animate-ping"
+      className="pointer-events-none absolute inset-0 hidden rounded-sm ring-2 ring-[rgba(158,254,0,0.4)] motion-safe:block motion-safe:animate-ping"
     />
   );
 }
 
 const STEP_BASE =
-  "relative z-10 flex h-full min-h-[4.75rem] w-full flex-col justify-between gap-3 rounded-lg border px-2.5 py-2.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-950";
+  "relative z-10 flex h-full min-h-[4.75rem] w-full flex-col justify-between gap-3 rounded-sm border px-2.5 py-2.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#9efe00] focus-visible:ring-offset-2 focus-visible:ring-offset-[#050607]";
 
 function stepClasses(status: LevelProgressDto["status"], selected: boolean): string {
-  const ring = selected ? "ring-2 ring-offset-2 ring-offset-stone-950 " : "";
+  const ring = selected ? "ring-2 ring-offset-2 ring-offset-[#050607] " : "";
   switch (status) {
     case "COMPLETED":
-      return `${ring}border-amber-500/40 bg-amber-500/[0.07] ${
-        selected ? "ring-amber-300/60" : ""
-      } hover:border-amber-400/70`;
+      return `${ring}border-[rgba(158,254,0,0.4)] bg-[rgba(158,254,0,0.07)] ${
+        selected ? "ring-[rgba(158,254,0,0.6)]" : ""
+      } hover:border-[rgba(158,254,0,0.7)]`;
     case "CURRENT":
-      return `${ring}border-amber-500/80 bg-stone-900 ${
-        selected ? "ring-amber-400/70" : ""
-      } hover:border-amber-400`;
+      return `${ring}border-[rgba(158,254,0,0.8)] bg-[#0d0f12] ${
+        selected ? "ring-[rgba(158,254,0,0.7)]" : ""
+      } hover:border-[#9efe00]`;
     case "LOCKED":
-      return `${ring}border-stone-800 bg-stone-900 ${
-        selected ? "ring-stone-600" : ""
-      } hover:border-stone-700`;
+      return `${ring}border-[#1a1e23] bg-[#0d0f12] ${
+        selected ? "ring-[#5f6368]" : ""
+      } hover:border-[#22272e]`;
   }
 }
 
@@ -176,16 +176,16 @@ export function SealBand({
   return (
     <nav
       aria-label="Your progression through the six seals"
-      className="border-b border-stone-800 bg-stone-950/80"
+      className="border-b border-[#1a1e23] bg-[#050607]/80"
     >
       <div className="mx-auto w-full max-w-5xl px-6 py-4">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-          <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-stone-500">
+          <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-[#5f6368]">
             the six seals
           </p>
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-stone-500">
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#5f6368]">
             {everyLevelBeaten ? (
-              <span className="text-amber-300">All six seals broken</span>
+              <span className="text-[#9efe00]">All six seals broken</span>
             ) : (
               <>
                 {broken} of {ordered.length} seals broken
@@ -199,7 +199,7 @@ export function SealBand({
               opaque, so it reads as a line threading them together. */}
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute left-0 right-0 top-1/2 h-px min-w-[38rem] bg-gradient-to-r from-transparent via-stone-700 to-transparent"
+            className="pointer-events-none absolute left-0 right-0 top-1/2 h-px min-w-[38rem] bg-gradient-to-r from-transparent via-[#22272e] to-transparent"
           />
           <ol className="relative flex min-w-[38rem] gap-2">
             {ordered.map((entry) => {
@@ -227,7 +227,7 @@ export function SealBand({
                     <span className="relative flex items-center justify-between gap-2">
                       <span
                         className={`font-mono text-[10px] tracking-[0.25em] ${
-                          entry.status === "LOCKED" ? "text-stone-500" : "text-stone-400"
+                          entry.status === "LOCKED" ? "text-[#5f6368]" : "text-[#9aa0a6]"
                         }`}
                       >
                         {pad(entry.level)}
@@ -235,10 +235,10 @@ export function SealBand({
                       <span
                         className={
                           entry.status === "COMPLETED"
-                            ? "text-amber-300"
+                            ? "text-[#9efe00]"
                             : entry.status === "CURRENT"
-                              ? "text-amber-400"
-                              : "text-stone-500"
+                              ? "text-[#9efe00]"
+                              : "text-[#5f6368]"
                         }
                       >
                         {entry.status === "COMPLETED" ? (
@@ -255,16 +255,16 @@ export function SealBand({
                       <span
                         className={
                           entry.status === "COMPLETED"
-                            ? "truncate font-display text-base leading-5 text-amber-200"
+                            ? "truncate font-display text-base leading-5 text-[#adff00]"
                             : entry.status === "CURRENT"
-                              ? "truncate font-mono text-[11px] uppercase tracking-[0.15em] text-stone-100"
-                              : "font-mono text-[11px] uppercase tracking-[0.15em] text-stone-500"
+                              ? "truncate font-mono text-[11px] uppercase tracking-[0.15em] text-white"
+                              : "font-mono text-[11px] uppercase tracking-[0.15em] text-[#5f6368]"
                         }
                         title={entry.status === "COMPLETED" ? entry.revealedWord ?? "" : undefined}
                       >
                         {sealLabel(entry)}
                       </span>
-                      <span className="text-[10px] leading-4 text-stone-500">
+                      <span className="text-[10px] leading-4 text-[#5f6368]">
                         {footnote(entry)}
                       </span>
                     </span>

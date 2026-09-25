@@ -19,13 +19,13 @@ export function LevelHeading({ level }: { readonly level: LevelNumber }): React.
   const identity = identityFor(level);
   return (
     <header className="flex flex-col gap-3">
-      <p className="font-mono text-[11px] uppercase tracking-[0.35em] text-stone-500">
+      <p className="font-mono text-[11px] uppercase tracking-[0.35em] text-[#5f6368]">
         Level {level} of 6
       </p>
-      <h2 className="font-display text-4xl leading-none font-semibold tracking-tight text-stone-100 sm:text-5xl">
+      <h2 className="font-display text-4xl leading-none font-semibold tracking-tight text-white sm:text-5xl">
         {identity.name}
       </h2>
-      <p className="font-mono text-[10px] uppercase tracking-[0.4em] text-stone-400">
+      <p className="font-mono text-[10px] uppercase tracking-[0.4em] text-[#9efe00]">
         {identity.title}
       </p>
     </header>
@@ -42,9 +42,9 @@ export function LevelTagline({ level }: { readonly level: LevelNumber }): React.
   return (
     <section
       aria-label={`About ${identity.name}`}
-      className="rounded-lg border border-stone-800/80 border-l-2 bg-stone-950/60 px-4 py-3 [border-left-color:var(--skin-glow,#f0b45a)]"
+      className="rounded-sm border border-[#1a1e23] border-l-2 bg-[#0d0f12]/60 px-4 py-3 [border-left-color:var(--skin-glow,#9efe00)]"
     >
-      <p className="max-w-2xl text-sm leading-6 text-stone-300">{identity.tagline}</p>
+      <p className="max-w-2xl text-sm leading-6 text-[#d0d7de]">{identity.tagline}</p>
     </section>
   );
 }

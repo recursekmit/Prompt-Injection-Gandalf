@@ -343,7 +343,7 @@ export function GameShell({ artwork }: GameShellProps): React.JSX.Element {
       return (
         <div className="px-6 py-16">
           <p role="alert" className="text-sm leading-6 text-red-200">
-            <Link href="/dashboard" className="text-amber-300 underline">
+            <Link href="/dashboard" className="text-[#9efe00] underline">
               Reload
             </Link>{" "}
             or return to the archive.
@@ -429,10 +429,10 @@ export function GameShell({ artwork }: GameShellProps): React.JSX.Element {
   }
 
   return (
-    <div className="flex flex-1 flex-col bg-stone-950 text-stone-200">
+    <div className="flex flex-1 flex-col bg-[#050607] text-[#d0d7de]">
       {loading ? (
         <div className="flex flex-1 items-center justify-center px-6 py-24" aria-live="polite">
-          <p className="font-mono text-sm text-stone-500">consulting the archive…</p>
+          <p className="font-mono text-sm text-[#5f6368]">consulting the archive…</p>
         </div>
       ) : loadError !== null ? (
         <div className="mx-auto w-full max-w-3xl px-6 py-16">
@@ -461,14 +461,14 @@ export function GameShell({ artwork }: GameShellProps): React.JSX.Element {
             </main>
           </div>
 
-          <footer className="border-t border-stone-800 bg-stone-950/80">
+          <footer className="border-t border-[#1a1e23] bg-[#050607]/80">
             <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-6 py-4">
-              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-stone-600">
+              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#5f6368]">
                 six seals · six words
               </p>
-              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-stone-600">
+              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#5f6368]">
                 Session status:{" "}
-                <span className={session?.status === "WON" ? "text-amber-300" : "text-stone-500"}>
+                <span className={session?.status === "WON" ? "text-[#9efe00]" : "text-[#5f6368]"}>
                   {session === null ? (everyLevelBeaten ? "run complete" : "no open seal") : STATUS_LABEL[session.status]}
                 </span>
               </p>
