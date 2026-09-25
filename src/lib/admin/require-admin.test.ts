@@ -17,14 +17,18 @@ interface SessionShape {
 
 const mocks = vi.hoisted(() => ({
   auth: vi.fn<() => Promise<SessionShape | null>>(),
+  notFound: vi.fn<() => never>(() => {
+    throw new Error("NEXT_NOT_FOUND");
+  }),
 }));
 
 vi.mock("@/lib/auth", () => ({ auth: mocks.auth }));
 vi.mock("@/lib/env", () => ({
   env: { adminEmails: ["admin@example.com", "smoke@example.com"] },
 }));
+vi.mock("next/navigation", () => ({ notFound: mocks.notFound }));
 
-import { getAdminSession, requireAdmin } from "@/lib/admin/require-admin";
+import { getAdminSession, requireAdmin, requireAdminPage } from "@/lib/admin/require-admin";
 
 /** The refusal payload exactly as the pre-extraction admin route returned it. */
 async function refusalOf(
@@ -92,6 +96,44 @@ describe("the admin gate", () => {
       // A session exists, so this is a refusal about identity, not a 401.
       expect(refusal.status).toBe(403);
     }
+  });
+
+  describe("the page gate", () => {
+    beforeEach(() => {
+      mocks.notFound.mockClear();
+    });
+
+    /**
+     * The bug this pins: `notFound()` in the layout returns 404 for an anonymous
+     * request while the page's already-rendered subtree travels in the flight
+     * payload. Measured against the dev server — an anonymous `GET /admin` whose
+     * page queried the six level words returned 404 with all six words in the
+     * body. The page gate has to run before the page reads anything, so the test
+     * that matters is that a non-admin reaches `notFound` at all.
+     */
+    it("sends a non-admin to notFound and returns no session", async () => {
+      mocks.auth.mockResolvedValue({ user: { id: "u2", email: "player@example.com" } });
+
+      await expect(requireAdminPage()).rejects.toThrow("NEXT_NOT_FOUND");
+      expect(mocks.notFound).toHaveBeenCalledTimes(1);
+    });
+
+    it("sends a signed-out caller to notFound", async () => {
+      mocks.auth.mockResolvedValue(null);
+
+      await expect(requireAdminPage()).rejects.toThrow("NEXT_NOT_FOUND");
+      expect(mocks.notFound).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns the admin without calling notFound for an allowlisted email", async () => {
+      mocks.auth.mockResolvedValue({ user: { id: "u1", email: "Admin@Example.COM" } });
+
+      await expect(requireAdminPage()).resolves.toEqual({
+        userId: "u1",
+        email: "admin@example.com",
+      });
+      expect(mocks.notFound).not.toHaveBeenCalled();
+    });
   });
 
   describe("the two entry points agree", () => {

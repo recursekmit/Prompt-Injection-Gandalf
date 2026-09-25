@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import type { Session } from "next-auth";
 
 import { auth } from "@/lib/auth";
@@ -55,6 +56,39 @@ function adminFrom(session: Session | null): AdminSession | null {
 /** The signed-in admin, or null. Never throws and never refuses by itself. */
 export async function getAdminSession(): Promise<AdminSession | null> {
   return adminFrom(await auth());
+}
+
+/**
+ * The gate for a PAGE, and the reason it must be the first statement of one.
+ *
+ * Measured, not assumed: with the layout calling `notFound()` and the page
+ * fetching and rendering the six level words, an anonymous `GET /admin` returned
+ * 404 **with every word in the flight payload** (compass, lantern, crucible,
+ * penumbra, palimpsest, defenestration — reproduced). Next renders the page's
+ * subtree to build the response before the layout's `notFound()` aborts it, so a
+ * layout gate changes the status code and withholds nothing. A gate that runs
+ * after the query has already leaked its data.
+ *
+ * So each page gates itself, before it reads anything:
+ *
+ *     const admin = await requireAdminPage();
+ *     const data = await loadTheSecretThing();
+ *
+ * With the same fetch behind this gate, the words are absent from the 404 body.
+ * That is the whole difference, and it is why this helper exists rather than
+ * each page remembering the two lines above.
+ *
+ * `notFound` is typed as `never`, so the return below is reachable code the
+ * compiler is happy with, and callers get a non-null session with no cast.
+ */
+export async function requireAdminPage(): Promise<AdminSession> {
+  const admin = await getAdminSession();
+
+  if (admin === null) {
+    notFound();
+  }
+
+  return admin;
 }
 
 /**
