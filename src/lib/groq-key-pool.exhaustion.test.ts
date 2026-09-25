@@ -368,10 +368,11 @@ describe("withGroqKey exhaustion at four keys", () => {
 
     // The deadline is never given up on early...
     expect(waited).toBeGreaterThanOrEqual(fake.env.queueMaxWaitMs);
-    // ...and the overshoot is bounded by a single poll: the deadline is checked
-    // before each sleep, never after, so the last sleep can run past it by up
-    // to one poll interval plus jitter. Nothing waits minutes.
-    expect(waited).toBeLessThan(fake.env.queueMaxWaitMs + fake.env.queuePollMs + 100);
+    // ...and it is never slept past either. Each sleep is clamped to whatever is
+    // left of the deadline, so a saturated pool gives up ON the cap rather than
+    // up to one poll interval after it. The small allowance is timer-granularity
+    // slack, not a second poll.
+    expect(waited).toBeLessThanOrEqual(fake.env.queueMaxWaitMs + 100);
     // It really did retry throughout rather than bailing out immediately.
     expect(fake.state.transactions).toBeGreaterThan(30);
   });

@@ -334,6 +334,28 @@ describe("withGroqKey", () => {
     await expect(pending).rejects.toThrow("500");
     expect(settled()).toBe(true);
   });
+
+  it("does not retry an error that declares itself non-retryable", async () => {
+    fake.env.groqApiKeys = ["k0"];
+    // Shape of GuardianUnavailableError: the reply arrived but carried no
+    // content. Retrying would spend two more units of quota on the same empty
+    // answer, so the pool must hand it straight to the caller.
+    const unrecoverable = Object.assign(new Error("empty completion"), {
+      retryable: false,
+    });
+    let attempts = 0;
+    const pending = withGroqKey(async () => {
+      attempts += 1;
+      throw unrecoverable;
+    });
+    const { settled } = track(pending);
+
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    expect(attempts).toBe(1);
+    expect(settled()).toBe(true);
+    await expect(pending).rejects.toBe(unrecoverable);
+  });
 });
 
 describe("describePool", () => {

@@ -9,6 +9,13 @@ const GUARDIAN_MODEL = "openai/gpt-oss-120b";
  * raw Groq text, so a route can map it straight to a 503.
  */
 export class GuardianUnavailableError extends Error {
+  /**
+   * Read by the key pool's retry classifier. The request reached Groq and came
+   * back; retrying it would spend another unit of quota on the same empty
+   * answer. Only transport failures are worth a retry.
+   */
+  readonly retryable = false;
+
   constructor(message = "The guardian is unavailable right now. Try again shortly.") {
     super(message);
     this.name = "GuardianUnavailableError";

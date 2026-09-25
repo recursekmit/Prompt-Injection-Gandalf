@@ -117,6 +117,16 @@ function isRateLimitError(error: unknown): boolean {
 }
 
 function isRetryableError(error: unknown): boolean {
+  // An error may state its own retryability. Domain errors use this: a reply
+  // that arrived but carried no content is not a transport failure, and
+  // retrying it would spend quota on an answer that was already empty.
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { retryable?: unknown }).retryable === false
+  ) {
+    return false;
+  }
   const status = statusOf(error);
   if (status !== undefined) {
     return status >= 500;
@@ -305,7 +315,10 @@ export async function withGroqKey<T>(
         throw new GuardianBusyError();
       }
       const jitter = Math.round((Math.random() * 2 - 1) * POLL_JITTER_MS);
-      await sleep(env.queuePollMs + jitter);
+      // Never sleep past the deadline. Without the clamp the final sleep always
+      // overshoots by up to poll + jitter, so the queue outlives its own cap.
+      const remaining = deadline - Date.now();
+      await sleep(Math.min(env.queuePollMs + jitter, remaining));
       continue;
     }
 
