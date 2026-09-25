@@ -1,62 +1,28 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import "dotenv/config";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { parseGuardianLevels } from "../src/lib/guardian/config";
 
 /**
- * The six level words, in level order. Each level guards exactly one fixed
- * word, so this table is the whole active pool now.
- *
- * Rules for the entries, all of which matter to the leak scanner or to gameplay:
- *   - lowercase, single words, ASCII letters only
- *   - never shorter than four letters, so the separator-squeeze scan layer
- *     cannot fire on ordinary prose
- *   - no proper nouns, no brand names
- *   - nothing that is a substring of a very common word, to keep false wins rare
+ * The six level words come from GUARDIAN_LEVELS, the same base64-JSON secret the
+ * runtime uses, so the words live in one uncommitted place instead of in this
+ * tracked file. `parseGuardianLevels` already enforces the pool rules the leak
+ * scanner relies on (lowercase ASCII, four letters or more, levels 1-6 with no
+ * gaps), so a malformed secret fails the seed loudly before any write.
  */
-const LEVEL_WORDS: ReadonlyArray<{ level: number; text: string }> = [
-  { level: 1, text: "compass" },
-  { level: 2, text: "lantern" },
-  { level: 3, text: "crucible" },
-  { level: 4, text: "penumbra" },
-  { level: 5, text: "palimpsest" },
-  { level: 6, text: "defenestration" },
-];
-
-function assertPoolRules(): void {
-  const seen = new Set<string>();
-  for (const { text } of LEVEL_WORDS) {
-    if (!/^[a-z]+$/.test(text)) {
-      throw new Error(`Word "${text}" must be lowercase ASCII letters only`);
-    }
-    if (text.length < 4) {
-      throw new Error(`Word "${text}" is shorter than four letters`);
-    }
-    if (seen.has(text)) {
-      throw new Error(`Word "${text}" is duplicated in the pool`);
-    }
-    seen.add(text);
+function levelWords(): ReadonlyArray<{ level: number; text: string }> {
+  const raw = process.env.GUARDIAN_LEVELS;
+  if (raw === undefined || raw === "") {
+    throw new Error("GUARDIAN_LEVELS is not set");
   }
-}
-
-/** A silent level gap would make that level unreachable, so it fails the seed. */
-function assertLevelsAreContiguous(): void {
-  const levels = LEVEL_WORDS.map((word) => word.level).sort((a, b) => a - b);
-  const expected = LEVEL_WORDS.map((_word, index) => index + 1);
-  if (levels.length !== expected.length) {
-    throw new Error(`Expected ${expected.length} level words, found ${levels.length}`);
-  }
-  for (let index = 0; index < expected.length; index += 1) {
-    if (levels[index] !== expected[index]) {
-      throw new Error(
-        `Levels must be exactly ${expected.join(",")} with no gaps or duplicates, got ${levels.join(",")}`,
-      );
-    }
-  }
+  return [...parseGuardianLevels(raw).values()].map((secret) => ({
+    level: secret.level,
+    text: secret.word,
+  }));
 }
 
 async function main(): Promise<void> {
-  assertPoolRules();
-  assertLevelsAreContiguous();
+  const LEVEL_WORDS = levelWords();
 
   const connectionString = process.env.DATABASE_URL;
   if (connectionString === undefined || connectionString === "") {

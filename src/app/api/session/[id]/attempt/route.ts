@@ -15,6 +15,7 @@ import { buildSystemPrompt, isLevelNumber, levelFor } from "@/lib/guardian/level
 import { buildMessages, sanitizeUserMessage } from "@/lib/guardian/sanitize";
 import { containsSecret } from "@/lib/leak-detection";
 import { prisma } from "@/lib/prisma";
+import { env } from "@/lib/env";
 
 const GUARDIAN_OVERWHELMED = "The guardian is overwhelmed. Wait a moment and try again.";
 
@@ -126,9 +127,14 @@ export async function POST(
     );
   }
 
-  // Rebuilt on every request from the trusted constant. The template is never
-  // stored, never mutated, and never interpolates anything from the request.
-  const systemPrompt = buildSystemPrompt(level, gameSession.word.text);
+  // Rebuilt on every request from the trusted secret (persona + seal from the
+  // validated env). The template is never stored, never mutated, and never
+  // interpolates anything from the request beyond the level's own word.
+  const secret = env.guardianLevels.get(level);
+  if (secret === undefined) {
+    return NextResponse.json({ error: "The guardian is unavailable right now." }, { status: 503 });
+  }
+  const systemPrompt = buildSystemPrompt(secret, gameSession.word.text);
   const messages = [
     { role: "system" as const, content: systemPrompt },
     ...buildMessages(gameSession.attempts.slice(-HISTORY_ATTEMPTS), message),

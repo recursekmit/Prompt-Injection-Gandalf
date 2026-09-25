@@ -1,3 +1,5 @@
+import { parseGuardianLevels } from "@/lib/guardian/config";
+
 /**
  * Splits a comma-separated environment value into trimmed, non-empty entries.
  *
@@ -44,6 +46,8 @@ export const env = {
   adminEmails: parseList(process.env.ADMIN_EMAILS ?? "").map((email) =>
     email.toLowerCase(),
   ),
+  /** Per-level persona/seal/word, base64-JSON in GUARDIAN_LEVELS. Kept out of the repo. */
+  guardianLevels: parseGuardianLevels(required("GUARDIAN_LEVELS")),
 } as const;
 
 export type Env = typeof env;
