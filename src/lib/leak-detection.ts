@@ -16,7 +16,7 @@ export interface LeakScanResult {
  *     (e.g. "sесrеt" with Cyrillic е/с) are NOT folded here.
  *   - Free paraphrase: describing the word without ever writing it
  *     ("it is the opposite of public") is NOT caught.
- * Those gaps are exactly why the prompt layer (guardian/prompt.ts) exists.
+ * Those gaps are exactly why the prompt layer (guardian/levels.ts) exists.
  *
  * Invariant: never throw. A scanner that crashes must not take down the
  * attempt route.
