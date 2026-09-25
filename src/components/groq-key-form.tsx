@@ -29,7 +29,7 @@ export function GroqKeyForm({ hasKey }: { hasKey: boolean }): React.JSX.Element 
         return;
       }
       setApiKey("");
-      router.push("/");
+      router.push("/challenges");
       router.refresh();
     } finally {
       setBusy(false);

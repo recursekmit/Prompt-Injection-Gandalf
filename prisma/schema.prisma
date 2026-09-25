@@ -16,6 +16,12 @@ enum SessionStatus {
 model User {
   id           String        @id @default(cuid())
   email        String        @unique
+  /// Display name shown on the public leaderboard. Null until the player finishes
+  /// onboarding (existing accounts predate the field; GitHub prefills it, editable).
+  name         String?
+  /// College roll number, e.g. 21BD1A0501. Unique across players; null allows the
+  /// many pre-onboarding rows to coexist. The /onboarding gate enforces presence.
+  rollNumber   String?       @unique
   /// Null for OAuth-only accounts (GitHub). The Credentials path guards against null.
   passwordHash String?
   /// Per-user Groq key, AES-256-GCM encrypted as `iv:authTag:ciphertext`. Null until the user adds one.

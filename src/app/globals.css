@@ -29,6 +29,168 @@ body {
   --font-display: var(--font-fraunces);
 }
 
+/* ==========================================================================
+   Acid-green cyber theme (ported from beat-the-bot)
+   --------------------------------------------------------------------------
+   The chrome, landing, leaderboard, auth and game shell share one industrial
+   look: pitch-black ground, a single neon-lime accent, monospace terminal
+   labels, thin dark borders, sharp radii and green glow. The six per-level
+   arenas keep their own warm/cold moods (see below) — this is the frame around
+   them, not a repaint of them.
+   ========================================================================== */
+:root {
+  --bg-primary: #050607;
+  --bg-surface: #0a0c0e;
+  --bg-panel: #0d0f12;
+  --recurse-green: #9efe00;
+  --recurse-green-bright: #adff00;
+  --recurse-green-glow: #84e800;
+  --recurse-green-subtle: rgba(158, 254, 0, 0.12);
+  --recurse-green-border: rgba(158, 254, 0, 0.35);
+  --text-secondary: #9aa0a6;
+  --text-muted: #5f6368;
+  --border-dark: #1a1e23;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+}
+
+html {
+  background-color: var(--bg-primary);
+}
+
+/*
+ * The "cyber constellation" ground: two faint green pools and an 80px white
+ * grid, fixed so it does not scroll away on long pages. Painted on the body's
+ * ::before so page content stacks above it without a stacking-context fight.
+ */
+body {
+  position: relative;
+  background-color: var(--bg-primary);
+  color: #ffffff;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(60% 50% at 12% 8%, rgba(158, 254, 0, 0.04), transparent 70%),
+    radial-gradient(55% 45% at 88% 92%, rgba(158, 254, 0, 0.03), transparent 70%),
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 80px 80px, 80px 80px;
+}
+
+/* --- Component kit: the classes pages compose inline ---------------------- */
+.btn-recurse-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: var(--recurse-green);
+  color: #000000;
+  font-family: var(--font-mono), monospace;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 2px;
+  padding: 0.7rem 1.25rem;
+  box-shadow: 0 0 20px rgba(158, 254, 0, 0.35);
+  transition: background-color 0.15s, box-shadow 0.15s, transform 0.15s, color 0.15s;
+}
+.btn-recurse-primary:hover {
+  background: #ffffff;
+  box-shadow: 0 0 24px rgba(255, 255, 255, 0.35);
+  transform: translateY(-1px);
+}
+.btn-recurse-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-recurse-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: #000000;
+  color: #ffffff;
+  font-family: var(--font-mono), monospace;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1px solid #33383f;
+  border-radius: 2px;
+  padding: 0.7rem 1.25rem;
+  transition: border-color 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.btn-recurse-secondary:hover {
+  border-color: var(--recurse-green);
+  color: var(--recurse-green);
+  box-shadow: 0 0 16px rgba(158, 254, 0, 0.2);
+}
+
+.recurse-card {
+  background: #090b0d;
+  border: 1px solid var(--border-dark);
+  border-radius: 4px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.recurse-card:hover {
+  border-color: rgba(158, 254, 0, 0.4);
+}
+.recurse-card-glow {
+  background: #090b0d;
+  border: 1px solid var(--recurse-green-border);
+  border-radius: 4px;
+  box-shadow: 0 0 25px rgba(158, 254, 0, 0.15);
+}
+
+.input-field {
+  width: 100%;
+  background: #07090b;
+  border: 1px solid #22272e;
+  border-radius: 2px;
+  padding: 0.65rem 0.85rem;
+  color: #ffffff;
+  font-family: var(--font-mono), monospace;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.input-field::placeholder {
+  color: var(--text-muted);
+}
+.input-field:focus {
+  border-color: var(--recurse-green);
+  box-shadow: 0 0 0 1px rgba(158, 254, 0, 0.4), 0 0 16px rgba(158, 254, 0, 0.2);
+}
+
+.terminal-tag {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.8rem;
+  color: var(--recurse-green);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.outline-text {
+  color: transparent;
+  -webkit-text-stroke: 2px var(--recurse-green);
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.status-beacon {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--recurse-green);
+  box-shadow: 0 0 8px var(--recurse-green);
+}
+
 /* The celebration banner arriving. */
 @keyframes reveal {
   from {

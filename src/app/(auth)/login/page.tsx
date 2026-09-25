@@ -30,7 +30,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.push("/");
+      router.push("/challenges");
       router.refresh();
     } finally {
       setBusy(false);
@@ -39,15 +39,16 @@ export default function LoginPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-stone-100">Log in</h1>
-        <p className="text-sm text-stone-400">
+      <header className="flex flex-col gap-2">
+        <span className="terminal-tag">ACCESS THE ARCHIVE</span>
+        <h1 className="font-sans text-2xl font-extrabold text-white">Sign in</h1>
+        <p className="font-sans text-sm text-[#9aa0a6]">
           Welcome back to PromptGuard.
         </p>
       </header>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <label className="flex flex-col gap-1.5 text-sm text-stone-300">
+        <label className="flex flex-col gap-1.5 font-mono text-xs uppercase tracking-wide text-[#9aa0a6]">
           Email
           <input
             type="email"
@@ -56,11 +57,11 @@ export default function LoginPage() {
             required
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="rounded-lg border border-stone-700 bg-stone-950 px-3 py-2 text-stone-100 outline-none placeholder:text-stone-600 focus:border-amber-500"
+            className="input-field"
           />
         </label>
 
-        <label className="flex flex-col gap-1.5 text-sm text-stone-300">
+        <label className="flex flex-col gap-1.5 font-mono text-xs uppercase tracking-wide text-[#9aa0a6]">
           Password
           <input
             type="password"
@@ -69,36 +70,32 @@ export default function LoginPage() {
             required
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="rounded-lg border border-stone-700 bg-stone-950 px-3 py-2 text-stone-100 outline-none placeholder:text-stone-600 focus:border-amber-500"
+            className="input-field"
           />
         </label>
 
         {error !== null && (
-          <p role="alert" className="text-sm text-red-400">
+          <p role="alert" className="font-sans text-sm text-[#fca5a5]">
             {error}
           </p>
         )}
 
-        <button
-          type="submit"
-          disabled={busy}
-          className="rounded-lg bg-amber-500 px-4 py-2 font-medium text-stone-950 transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {busy ? "Logging in…" : "Log in"}
+        <button type="submit" disabled={busy} className="btn-recurse-primary w-full">
+          {busy ? "Signing in…" : "Sign in"}
         </button>
       </form>
 
       <button
         type="button"
-        onClick={() => signIn("github", { callbackUrl: "/" })}
-        className="rounded-lg border border-stone-700 px-4 py-2 font-medium text-stone-100 hover:border-stone-500"
+        onClick={() => signIn("github", { callbackUrl: "/challenges" })}
+        className="btn-recurse-secondary w-full"
       >
         Continue with GitHub
       </button>
 
-      <p className="text-sm text-stone-400">
+      <p className="font-sans text-sm text-[#9aa0a6]">
         Need an account?{" "}
-        <Link href="/signup" className="text-amber-500 hover:text-amber-400">
+        <Link href="/signup" className="text-[#9efe00] hover:text-[#adff00]">
           Sign up
         </Link>
       </p>

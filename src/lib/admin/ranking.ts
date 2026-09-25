@@ -31,6 +31,8 @@ export type RankSessionStatus = "IN_PROGRESS" | "WON" | "ABANDONED";
 export interface RankPlayer {
   readonly id: string;
   readonly email: string;
+  readonly name: string | null;
+  readonly rollNumber: string | null;
 }
 
 export interface RankSession {
@@ -143,6 +145,8 @@ export function rankPlayers(input: RankInput): RankResult {
     rows.push({
       rank: 0, // assigned below, once the order is final
       email: player.email,
+      name: player.name,
+      rollNumber: player.rollNumber,
       levelsCompleted: record.levelsWon.size,
       totalAttempts: record.totalAttempts,
       lastWinAt: record.lastWinAt === null ? null : record.lastWinAt.toISOString(),

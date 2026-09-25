@@ -118,9 +118,28 @@ export interface LeaderboardRow {
   /** Position on the board, 1-based. */
   rank: number;
   email: string;
+  /** Public display name, null for accounts that predate onboarding. */
+  name: string | null;
+  /** College roll number, null for accounts that predate onboarding. */
+  rollNumber: string | null;
   /** Distinct levels won, 0 to 6. A level won twice is one level. */
   levelsCompleted: number;
   /** Every attempt this player has made, at any level. */
+  totalAttempts: number;
+  lastWinAt: string | null;
+  levels: LeaderboardLevelCell[];
+}
+
+/**
+ * One row of the PUBLIC leaderboard. Deliberately carries no email: this shape
+ * is what a logged-out visitor's browser receives, so a player's email must not
+ * be one field away from it. Identity is name + roll number only.
+ */
+export interface PublicLeaderboardRow {
+  rank: number;
+  name: string | null;
+  rollNumber: string | null;
+  levelsCompleted: number;
   totalAttempts: number;
   lastWinAt: string | null;
   levels: LeaderboardLevelCell[];
@@ -164,6 +183,14 @@ export interface LeaderboardResponse {
   /** Players with no attempts, left off the board. */
   playersExcluded: number;
   /** Every account, including those excluded. */
+  playersTotal: number;
+}
+
+/** The public board's payload: email-free rows plus the level summary. */
+export interface PublicLeaderboardResponse {
+  rows: PublicLeaderboardRow[];
+  summary: LeaderboardLevelSummary[];
+  playersExcluded: number;
   playersTotal: number;
 }
 

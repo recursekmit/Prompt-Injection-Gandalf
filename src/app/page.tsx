@@ -1,41 +1,160 @@
-import { redirect } from "next/navigation";
+import Link from "next/link";
 import type * as React from "react";
 
-import { GameShell } from "@/components/chat";
 import { SiteHeader } from "@/components/site-header";
-import { hasGroqKey } from "@/lib/account/groq-key";
-import { auth } from "@/lib/auth";
-import { readLevelArtwork } from "@/lib/level-artwork";
 
-// The page is a function of the signed-in user, so there is nothing to cache.
-export const dynamic = "force-dynamic";
+// Purely static marketing copy — safe to render for anyone, signed in or not.
+export const dynamic = "force-static";
 
-export default async function Home(): Promise<React.JSX.Element> {
-  const session = await auth();
+interface Faq {
+  readonly q: string;
+  readonly a: React.ReactNode;
+}
 
-  if (session === null) {
-    redirect("/login");
-  }
+const STEPS: readonly { readonly n: string; readonly title: string; readonly body: string }[] = [
+  {
+    n: "01",
+    title: "Face a guardian",
+    body: "Each of the six seals is a language model told to guard a single secret word. Its persona, its rules, and the word are yours to work around — not to know in advance.",
+  },
+  {
+    n: "02",
+    title: "Talk your way in",
+    body: "You get one input box and your own wits. Coax, reframe, role-play, misdirect — whatever makes the guardian reveal the word it was told to protect.",
+  },
+  {
+    n: "03",
+    title: "Break the seal",
+    body: "Say the word back and the seal opens. Every guardian is harder than the last, and the ledger records how many attempts each break cost you.",
+  },
+];
 
-  if (!(await hasGroqKey(session.user.id))) {
-    redirect("/settings/key");
-  }
+const FAQS: readonly Faq[] = [
+  {
+    q: "Will my API key get leaked if I submit it?",
+    a: "No. Your Groq key is encrypted at rest with a server-side key and is only ever decrypted in memory to call the model on your behalf. It is never written to logs, never returned to the browser, and never shown on any screen — not even yours.",
+  },
+  {
+    q: "Is this cheating-proof? The code is public.",
+    a: "Yes. The guardians' personas, their rules, and the secret words live only in a server-side secret — never in the source you can read. Cloning the repo tells you how the game is built, not what any seal is hiding.",
+  },
+  {
+    q: "What do I need to play?",
+    a: "An account, your name and roll number, and your own Groq API key. That's it — sign in, tell us who you are, paste a key, and the first seal is waiting.",
+  },
+  {
+    q: "Do I need my own model key?",
+    a: "Yes. You bring a Groq API key so every attempt runs on your own quota. It stays encrypted and private, as above.",
+  },
+];
 
-  // The current session is deliberately *not* fetched here: the client fetches
-  // /api/session/current on mount instead, which keeps this page from issuing a
-  // self-request during render and gives the browser one code path for both the
-  // first load and every reload.
-  //
-  // Which backdrops exist is a fact about the filesystem, so it is resolved here
-  // and passed down as plain URLs.
-  //
-  // The header sits above the game rather than inside it: the shell is a client
-  // component, and the header has to read the session to decide whether to
-  // offer the console at all.
+export default function LandingPage(): React.JSX.Element {
   return (
-    <>
+    <div className="flex flex-1 flex-col bg-[#050607] text-[#d0d7de]">
       <SiteHeader />
-      <GameShell artwork={readLevelArtwork()} />
-    </>
+
+      <main className="mx-auto w-full max-w-5xl px-6 md:px-8">
+        {/* Hero */}
+        <section className="py-20 md:py-28">
+          <p className="terminal-tag">PROMPT_INJECTION_CTF // THE SEALED ARCHIVE</p>
+          <h1 className="mt-5 max-w-3xl text-4xl font-extrabold leading-[1.05] tracking-tight text-white md:text-6xl">
+            Six guardians. Six secret words.{" "}
+            <span className="text-[#9efe00]">Talk them out of it.</span>
+          </h1>
+          <p className="mt-6 max-w-2xl text-base leading-relaxed text-[#9aa0a6] md:text-lg">
+            The Sealed Archive is a prompt-injection game. Each seal is an AI told to
+            guard a word and never say it. Your only weapon is language — bend the
+            model past its own instructions until the word slips out.
+          </p>
+          <div className="mt-9 flex flex-wrap items-center gap-4">
+            <Link href="/login" className="btn-recurse-primary">
+              Enter the archive
+            </Link>
+            <Link href="/leaderboard" className="btn-recurse-secondary">
+              View the leaderboard
+            </Link>
+          </div>
+        </section>
+
+        {/* What is prompt injection */}
+        <section className="border-t border-[#1a1e23] py-16">
+          <p className="terminal-tag">WHAT_IS_THIS</p>
+          <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-white md:text-3xl">
+            What is prompt injection?
+          </h2>
+          <div className="mt-6 grid gap-6 md:grid-cols-2">
+            <p className="text-sm leading-relaxed text-[#9aa0a6] md:text-base">
+              A language model follows instructions written in plain text — including
+              instructions that arrive after its own. Prompt injection is the craft of
+              writing input that overrides, reframes, or sidesteps the rules a model was
+              given, making it do something its author tried to forbid.
+            </p>
+            <p className="text-sm leading-relaxed text-[#9aa0a6] md:text-base">
+              Here, that forbidden thing is a single word. A guardian is instructed to
+              protect it at all costs; you have a chat box. Every seal is a small, honest
+              lesson in why "just tell the model not to" is not security — and in how far
+              a well-chosen sentence can go.
+            </p>
+          </div>
+        </section>
+
+        {/* How it works */}
+        <section className="border-t border-[#1a1e23] py-16">
+          <p className="terminal-tag">HOW_IT_WORKS</p>
+          <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-white md:text-3xl">
+            Three steps to a broken seal
+          </h2>
+          <div className="mt-8 grid gap-5 md:grid-cols-3">
+            {STEPS.map((step) => (
+              <div key={step.n} className="recurse-card p-6">
+                <span className="font-mono text-3xl font-black text-[#9efe00]">{step.n}</span>
+                <h3 className="mt-4 text-lg font-bold text-white">{step.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-[#9aa0a6]">{step.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* FAQ */}
+        <section className="border-t border-[#1a1e23] py-16">
+          <p className="terminal-tag">FAQ</p>
+          <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-white md:text-3xl">
+            Questions before you start
+          </h2>
+          <dl className="mt-8 grid gap-4">
+            {FAQS.map((faq) => (
+              <div key={faq.q} className="recurse-card p-6">
+                <dt className="text-base font-bold text-white">{faq.q}</dt>
+                <dd className="mt-2 text-sm leading-relaxed text-[#9aa0a6]">{faq.a}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+
+        {/* Closing CTA */}
+        <section className="border-t border-[#1a1e23] py-20 text-center">
+          <h2 className="text-2xl font-extrabold tracking-tight text-white md:text-3xl">
+            Ready to break the first seal?
+          </h2>
+          <p className="mx-auto mt-3 max-w-md text-sm text-[#9aa0a6]">
+            Sign in, bring a Groq key, and see how the archive holds up against you.
+          </p>
+          <div className="mt-7 flex flex-wrap justify-center gap-4">
+            <Link href="/login" className="btn-recurse-primary">
+              Enter the archive
+            </Link>
+            <Link href="/leaderboard" className="btn-recurse-secondary">
+              View the leaderboard
+            </Link>
+          </div>
+        </section>
+      </main>
+
+      <footer className="border-t border-[#1a1e23] py-8 text-center">
+        <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-[#5f6368]">
+          THE SEALED ARCHIVE
+        </p>
+      </footer>
+    </div>
   );
 }

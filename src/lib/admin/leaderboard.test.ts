@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { rankPlayers, summariseLevels } from "@/lib/admin/ranking";
-import type { RankSession } from "@/lib/admin/ranking";
+import type { RankPlayer, RankSession } from "@/lib/admin/ranking";
 
 /**
  * The order is the feature, so these assert the WHOLE ordering rather than the
@@ -9,10 +9,10 @@ import type { RankSession } from "@/lib/admin/ranking";
  * test that only reads `rows[0]` would pass while the board was wrong.
  */
 
-const A = { id: "u-a", email: "ada@example.com" };
-const B = { id: "u-b", email: "bob@example.com" };
-const C = { id: "u-c", email: "cy@example.com" };
-const D = { id: "u-d", email: "dee@example.com" };
+const A = { id: "u-a", email: "ada@example.com", name: null, rollNumber: null };
+const B = { id: "u-b", email: "bob@example.com", name: null, rollNumber: null };
+const C = { id: "u-c", email: "cy@example.com", name: null, rollNumber: null };
+const D = { id: "u-d", email: "dee@example.com", name: null, rollNumber: null };
 
 let sessionCounter = 0;
 
@@ -39,7 +39,7 @@ function session(
 
 /** Builds the inputs, wiring each session's attempt count into the map. */
 function rank(
-  players: readonly { id: string; email: string }[],
+  players: readonly RankPlayer[],
   built: ReadonlyArray<{ session: RankSession; attempts: number }>,
 ) {
   return rankPlayers({

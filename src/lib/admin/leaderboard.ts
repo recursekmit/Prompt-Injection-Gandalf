@@ -15,7 +15,9 @@ import type { LeaderboardResponse } from "@/lib/types";
  */
 export async function loadLeaderboard(): Promise<LeaderboardResponse> {
   const [players, sessions, attemptCounts] = await Promise.all([
-    prisma.user.findMany({ select: { id: true, email: true } }),
+    prisma.user.findMany({
+      select: { id: true, email: true, name: true, rollNumber: true },
+    }),
     prisma.gameSession.findMany({
       select: {
         id: true,
