@@ -88,6 +88,14 @@ export default function LoginPage() {
         </button>
       </form>
 
+      <button
+        type="button"
+        onClick={() => signIn("github", { callbackUrl: "/" })}
+        className="rounded-lg border border-stone-700 px-4 py-2 font-medium text-stone-100 hover:border-stone-500"
+      >
+        Continue with GitHub
+      </button>
+
       <p className="text-sm text-stone-400">
         Need an account?{" "}
         <Link href="/signup" className="text-amber-500 hover:text-amber-400">

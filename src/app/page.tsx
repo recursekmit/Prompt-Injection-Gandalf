@@ -3,6 +3,7 @@ import type * as React from "react";
 
 import { GameShell } from "@/components/chat";
 import { SiteHeader } from "@/components/site-header";
+import { hasGroqKey } from "@/lib/account/groq-key";
 import { auth } from "@/lib/auth";
 import { readLevelArtwork } from "@/lib/level-artwork";
 
@@ -14,6 +15,10 @@ export default async function Home(): Promise<React.JSX.Element> {
 
   if (session === null) {
     redirect("/login");
+  }
+
+  if (!(await hasGroqKey(session.user.id))) {
+    redirect("/settings/key");
   }
 
   // The current session is deliberately *not* fetched here: the client fetches
