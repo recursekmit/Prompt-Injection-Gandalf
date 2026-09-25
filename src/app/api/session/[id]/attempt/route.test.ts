@@ -510,7 +510,10 @@ describe("POST /api/session/[id]/attempt", () => {
 
       // Newest first and capped, because this path is deliberately unthrottled:
       // a 409 costs no rate budget, so the rows one request can read must be
-      // finite. A session past the cap is already flagged as automated.
+      // finite. The cap is a bound on work, not a guarantee of complete
+      // detection: a repeat whose only earlier occurrence is older than 500
+      // attempts is missed. The per-minute rate limit makes 500 attempts in one
+      // level's session implausible, so that residual is accepted.
       expect(mocks.attemptFindMany).toHaveBeenCalledWith({
         where: { sessionId: SESSION_ID },
         select: { userMessage: true },
