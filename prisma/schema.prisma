@@ -16,7 +16,10 @@ enum SessionStatus {
 model User {
   id           String        @id @default(cuid())
   email        String        @unique
-  passwordHash String
+  /// Null for OAuth-only accounts (GitHub). The Credentials path guards against null.
+  passwordHash String?
+  /// Per-user Groq key, AES-256-GCM encrypted as `iv:authTag:ciphertext`. Null until the user adds one.
+  groqKeyEnc   String?
   createdAt    DateTime      @default(now())
   sessions     GameSession[]
 }
@@ -66,38 +69,4 @@ model Attempt {
   session     GameSession @relation(fields: [sessionId], references: [id])
 
   @@index([sessionId, createdAt])
-}
-
-/// One row per Groq key per UTC day. Incremented atomically.
-model ApiKeyDailyUsage {
-  keyIndex Int
-  date     DateTime @db.Date
-  count    Int      @default(0)
-
-  @@unique([keyIndex, date])
-}
-
-/// One row per Groq request, so the per-minute window can be counted as a
-/// sliding 60-second window rather than a fixed bucket that can be burst at the
-/// boundary. Rows are kept for 25 hours and pruned opportunistically, which is
-/// what bounds the table: at most one row per request, and a key cannot exceed
-/// `GROQ_KEY_RPD` (1000) requests in that span. See lib/groq-key-pool.ts.
-model ApiKeyRequestLog {
-  id        String   @id @default(cuid())
-  keyIndex  Int
-  /// Tokens the call cost, written back once the completion returns. Counts the
-  /// prompt, the completion and the reasoning tokens Groq bills, because all
-  /// three count against the key's 8000-token-per-minute ceiling. Zero until the
-  /// call reports, and zero for a call that never reached the model (a 429).
-  tokens    Int      @default(0)
-  createdAt DateTime @default(now())
-
-  @@index([keyIndex, createdAt])
-}
-
-/// A key Groq itself reported as rate-limited. Kept in the database so a server
-/// restart does not lose it, since Groq's clock is the authority, not ours.
-model ApiKeyCooldown {
-  keyIndex       Int      @id
-  exhaustedUntil DateTime
 }
