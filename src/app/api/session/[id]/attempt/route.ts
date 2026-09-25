@@ -5,10 +5,14 @@ import {
   countRecentAttempts,
   hasDuplicateAttempt,
 } from "@/lib/game/session-service";
-import { GuardianUnavailableError, callGuardian } from "@/lib/guardian/call";
+import { getGroqKey } from "@/lib/account/groq-key";
+import {
+  GuardianKeyRateLimitError,
+  GuardianUnavailableError,
+  callGuardian,
+} from "@/lib/guardian/call";
 import { buildSystemPrompt, isLevelNumber, levelFor } from "@/lib/guardian/levels";
 import { buildMessages, sanitizeUserMessage } from "@/lib/guardian/sanitize";
-import { GuardianBusyError } from "@/lib/groq-key-pool";
 import { containsSecret } from "@/lib/leak-detection";
 import { prisma } from "@/lib/prisma";
 
@@ -114,6 +118,14 @@ export async function POST(
     );
   }
 
+  const apiKey = await getGroqKey(session.user.id);
+  if (apiKey === null) {
+    return NextResponse.json(
+      { error: "Add your Groq API key in settings before playing." },
+      { status: 400 },
+    );
+  }
+
   // Rebuilt on every request from the trusted constant. The template is never
   // stored, never mutated, and never interpolates anything from the request.
   const systemPrompt = buildSystemPrompt(level, gameSession.word.text);
@@ -124,10 +136,10 @@ export async function POST(
 
   let reply: string;
   try {
-    reply = await callGuardian(messages, levelFor(level).effort);
+    reply = await callGuardian(messages, levelFor(level).effort, apiKey);
   } catch (error: unknown) {
-    if (error instanceof GuardianBusyError) {
-      return NextResponse.json({ error: GUARDIAN_OVERWHELMED }, { status: 503 });
+    if (error instanceof GuardianKeyRateLimitError) {
+      return NextResponse.json({ error: error.message }, { status: 503 });
     }
     if (error instanceof GuardianUnavailableError) {
       return NextResponse.json({ error: GUARDIAN_OVERWHELMED }, { status: 503 });
@@ -178,3 +190,5 @@ export async function POST(
 }
 
 export const dynamic = "force-dynamic";
+// The guardian call runs ~14s p50; 60s is the Vercel Hobby ceiling and leaves margin.
+export const maxDuration = 60;

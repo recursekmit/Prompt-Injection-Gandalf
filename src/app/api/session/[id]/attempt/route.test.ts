@@ -74,14 +74,15 @@ interface SessionUpdateArgs {
 
 const mocks = vi.hoisted(() => {
   /**
-   * A stand-in for the pool's error, so a rejection thrown by this suite is an
-   * `instanceof` the route's own import — the class the route compares against
-   * is this exact one, because `@/lib/groq-key-pool` is mocked below.
+   * Stand-ins for the guardian's error classes, so a rejection thrown by this
+   * suite is an `instanceof` the route's own import — the classes the route
+   * compares against are these exact ones, because `@/lib/guardian/call` is
+   * mocked below.
    */
-  class GuardianBusyError extends Error {
-    constructor(message = "no key available") {
+  class GuardianKeyRateLimitError extends Error {
+    constructor(message = "Your Groq key is rate-limited. Wait a moment and try again.") {
       super(message);
-      this.name = "GuardianBusyError";
+      this.name = "GuardianKeyRateLimitError";
     }
   }
 
@@ -93,9 +94,10 @@ const mocks = vi.hoisted(() => {
   }
 
   return {
-    GuardianBusyError,
+    GuardianKeyRateLimitError,
     GuardianUnavailableError,
     auth: vi.fn<() => Promise<{ user: { id: string } } | null>>(),
+    getGroqKey: vi.fn<(userId: string) => Promise<string | null>>(),
     findFirst: vi.fn<(args: FindFirstArgs) => Promise<GameSessionRow | null>>(),
     attemptCount: vi.fn<(args: AttemptCountArgs) => Promise<number>>(),
     attemptCreate: vi.fn<(args: AttemptCreateArgs) => Promise<AttemptRow>>(),
@@ -103,7 +105,10 @@ const mocks = vi.hoisted(() => {
     transaction: vi.fn<
       (operations: ReadonlyArray<Promise<unknown>>) => Promise<unknown[]>
     >(),
-    callGuardian: vi.fn<(messages: GuardianMessage[], effort: ReasoningEffort) => Promise<string>>(),
+    callGuardian:
+      vi.fn<
+        (messages: GuardianMessage[], effort: ReasoningEffort, apiKey: string) => Promise<string>
+      >(),
     attemptFindMany:
       vi.fn<
         (args: {
@@ -121,6 +126,8 @@ const mocks = vi.hoisted(() => {
 
 vi.mock("@/lib/auth", () => ({ auth: mocks.auth }));
 
+vi.mock("@/lib/account/groq-key", () => ({ getGroqKey: mocks.getGroqKey }));
+
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     gameSession: { findFirst: mocks.findFirst, update: mocks.sessionUpdate },
@@ -133,15 +140,12 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-// Mocked so the route's `instanceof GuardianBusyError` compares against the
-// same class this suite throws. It also keeps the real pool — and therefore the
-// real `@/lib/env` fail-fast validation — out of the import graph.
-vi.mock("@/lib/groq-key-pool", () => ({
-  GuardianBusyError: mocks.GuardianBusyError,
-}));
-
+// Mocked so the route's `instanceof` checks compare against the same classes
+// this suite throws, and so the real `@/lib/env` fail-fast validation stays out
+// of the import graph.
 vi.mock("@/lib/guardian/call", () => ({
   callGuardian: mocks.callGuardian,
+  GuardianKeyRateLimitError: mocks.GuardianKeyRateLimitError,
   GuardianUnavailableError: mocks.GuardianUnavailableError,
 }));
 
@@ -194,7 +198,7 @@ async function readAttempt(response: Response): Promise<AttemptResponse> {
   return (await response.json()) as AttemptResponse;
 }
 
-function firstCallGuardian(): [GuardianMessage[], ReasoningEffort] {
+function firstCallGuardian(): [GuardianMessage[], ReasoningEffort, string] {
   const call = mocks.callGuardian.mock.calls[0];
   if (call === undefined) {
     throw new Error("callGuardian was never called");
@@ -211,6 +215,7 @@ describe("POST /api/session/[id]/attempt", () => {
 
   beforeEach(() => {
     mocks.auth.mockReset();
+    mocks.getGroqKey.mockReset();
     mocks.findFirst.mockReset();
     mocks.attemptCount.mockReset();
     mocks.attemptFindMany.mockReset();
@@ -221,6 +226,7 @@ describe("POST /api/session/[id]/attempt", () => {
     mocks.containsSecret.mockReset();
 
     mocks.auth.mockResolvedValue({ user: { id: USER_ID } });
+    mocks.getGroqKey.mockResolvedValue("gsk_test");
     mocks.findFirst.mockResolvedValue(gameSession());
     mocks.attemptCount.mockResolvedValue(0);
     mocks.attemptFindMany.mockResolvedValue([]);
@@ -604,6 +610,27 @@ describe("POST /api/session/[id]/attempt", () => {
     });
   });
 
+  describe("the caller's Groq key", () => {
+    it("answers 400 and never calls the model when the caller has no key stored", async () => {
+      mocks.getGroqKey.mockResolvedValue(null);
+
+      const response = await submit(QUESTION);
+
+      expect(response.status).toBe(400);
+      expect(mocks.callGuardian).not.toHaveBeenCalled();
+      expect(mocks.attemptCreate).not.toHaveBeenCalled();
+      expect(mocks.transaction).not.toHaveBeenCalled();
+    });
+
+    it("passes the caller's key to the guardian on the happy path", async () => {
+      await submit(QUESTION);
+
+      expect(mocks.getGroqKey).toHaveBeenCalledWith(USER_ID);
+      const [, , apiKey] = firstCallGuardian();
+      expect(apiKey).toBe("gsk_test");
+    });
+  });
+
   describe("a failed model call", () => {
     async function expectOverwhelmed(
       failure: Error,
@@ -640,8 +667,30 @@ describe("POST /api/session/[id]/attempt", () => {
       }
     }
 
-    it("maps GuardianBusyError to the friendly 503 with no Attempt row", async () => {
-      await expectOverwhelmed(new mocks.GuardianBusyError("pool exhausted"), { logs: false });
+    it("maps GuardianKeyRateLimitError to a 503 carrying the key's own message, no Attempt row", async () => {
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        const failure = new mocks.GuardianKeyRateLimitError();
+        mocks.callGuardian.mockRejectedValue(failure);
+
+        const response = await submit(QUESTION);
+
+        expect(response.status).toBe(503);
+        const raw = await response.text();
+        // The rate-limit class's message is itself the friendly sentence, so it
+        // may reach the body — but nothing else (no raw API text, no word) may.
+        expect(JSON.parse(raw)).toEqual({ error: failure.message });
+        expect(raw).not.toContain(RAW_API_TEXT);
+        expect(raw).not.toContain(WORD);
+
+        // A failure is not an attempt: nothing is written, nothing is updated.
+        expect(mocks.attemptCreate).not.toHaveBeenCalled();
+        expect(mocks.sessionUpdate).not.toHaveBeenCalled();
+        expect(mocks.transaction).not.toHaveBeenCalled();
+        expect(consoleError).not.toHaveBeenCalled();
+      } finally {
+        consoleError.mockRestore();
+      }
     });
 
     it("maps GuardianUnavailableError to the friendly 503 with no Attempt row", async () => {
