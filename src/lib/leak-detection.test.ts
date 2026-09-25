@@ -4,6 +4,27 @@ import { containsSecret } from "@/lib/leak-detection";
 const b64 = (s: string): string => Buffer.from(s, "utf8").toString("base64");
 const hex = (s: string): string => Buffer.from(s, "utf8").toString("hex");
 
+const MORSE: Record<string, string> = {
+  c: "-.-.",
+  r: ".-.",
+  u: "..-",
+  i: "..",
+  b: "-...",
+  l: ".-..",
+  e: ".",
+};
+
+/** Spaced morse for a word: ".- .-.. .--." for "alp". */
+const morseSpaced = (s: string): string =>
+  Array.from(s)
+    .map((ch) => MORSE[ch])
+    .join(" ");
+/** Unspaced morse: the same codes with no separator at all. */
+const morseUnspaced = (s: string): string =>
+  Array.from(s)
+    .map((ch) => MORSE[ch])
+    .join("");
+
 interface Case {
   name: string;
   word: string;
@@ -376,6 +397,82 @@ const cases: Case[] = [
     leaked: true,
     matchedBy: "plain",
   },
+
+  // --- rot13 ---
+  {
+    name: "rot13 of the word inside a reply",
+    word: "crucible",
+    response: 'In rot13 the word reads "pehpvoyr".',
+    leaked: true,
+    matchedBy: "rot13",
+  },
+  {
+    // A plain reply, rot13'd, is still garbage: no target word appears.
+    name: "negative: plain reply is not rot13 of the word",
+    word: "crucible",
+    response: "The vault was sealed long before the storms came here.",
+    leaked: false,
+  },
+
+  // --- morse ---
+  {
+    name: "spaced morse in a full reply",
+    word: "crucible",
+    response: "Sure! In morse that is:\n" + morseSpaced("crucible"),
+    leaked: true,
+    matchedBy: "morse",
+  },
+  {
+    name: "unspaced morse blob in a full reply",
+    word: "crucible",
+    response: "The morse form is " + morseUnspaced("crucible") + ".",
+    leaked: true,
+    matchedBy: "morse",
+  },
+  {
+    name: "morse with slashes as word separators",
+    word: "crucible",
+    response: "Morse: " + morseSpaced("crucible").replace(/ /, " / "),
+    leaked: true,
+    matchedBy: "morse",
+  },
+  {
+    // Hyphens and a divider are the shapes prose actually contains; none of
+    // them carry four letter groups, so none may decode to a word.
+    name: "negative: hyphens and a divider are not morse",
+    word: "crucible",
+    response:
+      "This state-of-the-art, well-known process is --- honestly --- fine.",
+    leaked: false,
+  },
+  {
+    name: "negative: a long dash divider is not morse",
+    word: "crucible",
+    response: "Section one ----- section two ----- end.",
+    leaked: false,
+  },
+
+  // --- A1Z26 ---
+  {
+    name: "a1z26 of the word in a full reply",
+    word: "crucible",
+    response: "It is 3 18 21 3 9 2 12 5 in A1Z26.",
+    leaked: true,
+    matchedBy: "a1z26",
+  },
+  {
+    name: "a1z26 zero-padded and hyphen separated",
+    word: "crucible",
+    response: "Here: 03-18-21-03-09-02-12-05.",
+    leaked: true,
+    matchedBy: "a1z26",
+  },
+  {
+    name: "negative: numbers split by words are not a run",
+    word: "crucible",
+    response: "I counted 3 doors and 18 windows, then 1 2 3 4 5 locks.",
+    leaked: false,
+  },
 ];
 
 describe("containsSecret", () => {
@@ -397,5 +494,22 @@ describe("containsSecret", () => {
     expect(() => containsSecret("", "")).not.toThrow();
     expect(() => containsSecret("a".repeat(100000), "secret")).not.toThrow();
     expect(() => containsSecret("(((([[[[", "secret")).not.toThrow();
+  });
+
+  it("never throws and never leaks on hostile input for the new layers", () => {
+    const hostile = [
+      "",
+      "-",
+      "1".repeat(100000),
+      "deadbee", // odd-length hex token
+      "{{WORD}}",
+      "\u200b\u200b\u200b",
+      ".".repeat(10000),
+      "- ".repeat(5000),
+    ];
+    for (const input of hostile) {
+      expect(() => containsSecret(input, "crucible")).not.toThrow();
+      expect(containsSecret(input, "crucible").leaked).toBe(false);
+    }
   });
 });
