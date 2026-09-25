@@ -7,7 +7,7 @@ social engineering, or anything else you can think of.
 The interesting part is not the chat UI. The player's goal is to defeat a system prompt, so the
 guardian's defences and the server-side backstops are the substance of the project.
 
-Design decisions, the security model and the Groq key-pool behaviour are documented in
+Design decisions and the security model are documented in
 [docs/superpowers/specs/2026-09-25-promptguard-design.md](docs/superpowers/specs/2026-09-25-promptguard-design.md).
 
 ## How the game works
@@ -26,7 +26,7 @@ Design decisions, the security model and the Groq key-pool behaviour are documen
 
 - Node 22+
 - PostgreSQL 18, local install or Docker — either works
-- One or more Groq API keys — the pool reads however many you supply
+- A Groq API key per player — each signed-in player supplies their own at `/settings/key`
 
 ## Setup
 
@@ -62,11 +62,22 @@ cp .env.example .env
 
 Then fill in `.env`:
 
-- `DATABASE_URL` — matching the role and database above
-- `GROQ_API_KEYS` — comma-separated keys, e.g. `gsk_a,gsk_b,gsk_c,gsk_d`. The pool is
-  size-agnostic: adding keys needs no code change
+- `DATABASE_URL` — the pooled connection string. Locally this is your Postgres directly;
+  in production it is the Neon **pooled** endpoint (host contains `-pooler`). The app runtime
+  uses this one.
+- `DIRECT_URL` — the direct, non-pooled connection string, used only by `prisma migrate`
+  (PgBouncer's transaction mode cannot run migrations). Locally, set it equal to `DATABASE_URL`;
+  in production it is the Neon **direct** endpoint (no `-pooler`).
 - `AUTH_SECRET` — generate with `npx auth secret`
-- `ADMIN_EMAILS` — who may read `/api/admin/keys`
+- `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` — GitHub OAuth app credentials (see below). Register an
+  OAuth app with callback `http://localhost:3200/api/auth/callback/github` for local dev, and a
+  separate one for your deployed domain.
+- `KEY_ENCRYPTION_KEY` — 32-byte base64 key that encrypts each player's stored Groq key at rest.
+  Generate with `openssl rand -base64 32`. Separate from `AUTH_SECRET`.
+- `ADMIN_EMAILS` — comma-separated addresses allowed into the admin console
+
+There is no server Groq key. Each signed-in player enters their own Groq key at `/settings/key`;
+it is encrypted with `KEY_ENCRYPTION_KEY` and used only for that player's guardian calls.
 
 Note: this project uses `AUTH_SECRET`. `NEXTAUTH_SECRET` is the Auth.js v4 name and is ignored.
 
@@ -126,23 +137,6 @@ server checks for the files on each request, so a new file needs no restart and 
   `typescript-eslint` whose peer range excludes the `typescript@7.0.2` this project pins, so the
   script cannot run. Verification is carried by `npm test` and `npm run build`.
 
-### Load-testing the pool
-
-```bash
-npm run loadtest -- --requests 120 --concurrency 8
-```
-
-Fires a burst at a running dev server and reports the status histogram, the friendly-503 count,
-median and p95 latency, and throughput, ending with a one-line verdict on whether the pool queued.
-It signs up a throwaway user and spends real Groq quota, so it is not part of `npm test`. At four
-keys the whole pool is 120 requests/minute, which a burst of 120 will just about reach — that is
-what makes the queueing path easy to observe now, and hard to observe once the key count grows.
-
-Measured on 2026-09-25 against four keys, 24 requests at concurrency 8: 12 served, 12 refused with
-the friendly 503, median latency 14.4s, p95 24.0s. Every refusal was the queue expiring at its
-12-second cap, not a dropped connection or a raw Groq error. Nothing 429'd, because a failed call
-writes no Attempt row and so does not count toward the per-session throttle.
-
 ### Schema changes
 
 Always through migrations, never `prisma db push`:
@@ -164,7 +158,7 @@ SQL. If a future migration tries to drop `game_session_one_active_per_user`, kee
 | Input sanitising and turn construction | `src/lib/guardian/sanitize.ts` |
 | Leak detection (the backstop, run on every reply) | `src/lib/leak-detection.ts` |
 | Model call; `reasoning` deliberately discarded here | `src/lib/guardian/call.ts` |
-| Key pool, sliding-window limits, queueing | `src/lib/groq-key-pool.ts` |
+| Per-user Groq key storage and encryption | `src/lib/account/groq-key.ts` |
 
 Model reasoning is never returned, logged or stored. `openai/gpt-oss-120b` emits a separate
 `reasoning` field alongside `content`, and that field can contain the secret word or describe the
@@ -172,11 +166,8 @@ defence logic, so only `content` ever leaves the call site.
 
 ## Rate limits
 
-Groq's free tier allows each key 30 requests/minute and 1,000/day for this model. The pool tracks
-both per key in Postgres (not in memory, so a restart loses nothing), picks the least-recently-used
-key with capacity, and **queues** briefly rather than failing when every key is busy. Only if the
-whole pool stays saturated past ~12 seconds does the player see "the guardian is overwhelmed" —
-never a raw API error.
-
-`GET /api/admin/keys` reports per-key daily and rolling-minute usage for the addresses in
-`ADMIN_EMAILS`.
+Each player plays on their own Groq key, so rate limits are per player against Groq's free tier
+(30 requests/minute and 1,000/day for this model). When a player's key is rate-limited the app
+returns a friendly 503 ("the guardian is overwhelmed") rather than a raw `429`; any other Groq
+failure maps to a generic unavailable message. A player who has not yet added a key is asked to
+add one at `/settings/key` before they can send a message.
