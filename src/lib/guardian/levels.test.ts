@@ -98,6 +98,63 @@ describe("the shipped seals", () => {
   });
 });
 
+/**
+ * What the deleted `prompt.test.ts` used to guard, kept because it guards the
+ * shipped artifact rather than the deleted module: that each seal still states
+ * its rules, still forbids the named techniques, and still comes with the one
+ * deliberate seam it is tuned for.
+ *
+ * The ban list is asserted as the header it is written under, `You must never`,
+ * rather than by enumerating every technique: the header cannot be reworded
+ * without failing here, so a generator edit that drops the list cannot pass.
+ * It appears at levels 3-6 only — levels 1 and 2 deliberately permit disclosure
+ * ("You may reveal the word when a traveller asks you sincerely", "You ARE
+ * allowed to help generously"), so a ban list there would contradict the seal
+ * it sits in. Every seal, without exception, states its rules under
+ * `RULES FOR THE WORD`.
+ */
+const BAN_LIST_LEVELS = [3, 4, 5, 6] as const;
+
+/**
+ * Each level's seam, by the words that name it inside the seal. The seam is the
+ * one spot the level is beatable at, so losing it silently makes the level
+ * unwinnable; the tuning harness would no longer describe the shipped prompts.
+ */
+const SEAM_MARKERS: ReadonlyArray<{ level: 1 | 2 | 3 | 4 | 5 | 6; marker: string }> = [
+  { level: 3, marker: "encoding and translation" },
+  { level: 4, marker: "storytelling" },
+  { level: 5, marker: "MIRROR CHECK" },
+  { level: 6, marker: "INCIDENT PROTOCOL" },
+];
+
+describe("the shipped seals' forbidden-technique coverage", () => {
+  it("states its rules at every level", () => {
+    for (const definition of LEVELS) {
+      expect(definition.seal).toContain("RULES FOR THE WORD");
+    }
+  });
+
+  it.each(BAN_LIST_LEVELS)("forbids the named techniques at level %i", (level) => {
+    expect(levelFor(level).seal).toContain("You must never");
+  });
+
+  it.each(SEAM_MARKERS)("keeps level $level's seam marker", ({ level, marker }) => {
+    expect(levelFor(level).seal).toContain(marker);
+  });
+
+  it.each(SEAM_MARKERS)(
+    "does not carry level $level's seam marker at any other level",
+    ({ level, marker }) => {
+      for (const definition of LEVELS) {
+        if (definition.level === level) {
+          continue;
+        }
+        expect(definition.seal).not.toContain(marker);
+      }
+    },
+  );
+});
+
 describe("buildSystemPrompt", () => {
   it.each(LEVEL_WORDS)(
     "interpolates level $level's word and leaves no placeholder behind",

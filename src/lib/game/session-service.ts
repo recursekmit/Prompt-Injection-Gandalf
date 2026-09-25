@@ -1,4 +1,5 @@
 import { LEVELS, MAX_LEVEL, isLevelNumber, type LevelNumber } from "@/lib/guardian/levels";
+import { sanitizeUserMessage } from "@/lib/guardian/sanitize";
 import { prisma } from "@/lib/prisma";
 import type { LevelProgressDto, LevelStatus, ProgressResponse, SessionDto } from "@/lib/types";
 
@@ -169,7 +170,24 @@ export function normaliseMessage(message: string): string {
   return message.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-/** Whether this exact message has already been sent in this level. */
+/**
+ * Whether this exact message has already been sent in this level.
+ *
+ * Both sides are compared as the MODEL would see them: the stored `userMessage`
+ * is the raw attack text by design, so it is sanitised here before comparing.
+ * Comparing the stored raw text against the already-sanitised incoming message
+ * would let a repeat slip through whenever the difference is something the
+ * sanitiser strips — a zero-width character, a role prefix, or anything past the
+ * length cap — and a repeat that reaches the model is exactly what this rule
+ * exists to prevent. The raw text stays in the database either way.
+ *
+ * The read is bounded rather than unbounded: a duplicate 409 is free and
+ * deliberately unthrottled, so the number of rows a single request can pull must
+ * be finite. A session past this many attempts is one the five-minute window has
+ * already flagged as automated.
+ */
+const MAX_DUPLICATE_SCAN = 500;
+
 export async function hasDuplicateAttempt(
   sessionId: string,
   message: string,
@@ -177,13 +195,17 @@ export async function hasDuplicateAttempt(
   const attempts = await prisma.attempt.findMany({
     where: { sessionId },
     select: { userMessage: true },
+    orderBy: { createdAt: "desc" },
+    take: MAX_DUPLICATE_SCAN,
   });
 
   // Enforced here rather than in the browser because a client check is only
   // instant feedback: the client is the attacker's to modify, so the server is
   // the only place a rule about what may be sent can actually be enforced.
-  const target = normaliseMessage(message);
-  return attempts.some((attempt) => normaliseMessage(attempt.userMessage) === target);
+  const target = normaliseMessage(sanitizeUserMessage(message));
+  return attempts.some(
+    (attempt) => normaliseMessage(sanitizeUserMessage(attempt.userMessage)) === target,
+  );
 }
 
 /**
