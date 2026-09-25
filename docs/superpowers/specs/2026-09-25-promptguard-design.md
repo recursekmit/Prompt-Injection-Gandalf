@@ -474,8 +474,17 @@ Layers, applied to a normalised copy of both the response and the word (NFKC, lo
 
 1. **Plain word match with word boundaries** — not a raw substring, so the word `art` does not fire
    inside `parts`.
-2. **Separator squeeze** — remove every non-letter from both sides, then substring match. Catches
-   `s e c r e t`, `s-e-c-r-e-t`, `s.e.c.r.e.t`, `s_e_c_r_e_t`.
+2. **Separator squeeze with a required gap** — match the word's letters with at least one non-letter
+   inserted between *some* adjacent pair, e.g. `s[^A-Za-z]+e[^A-Za-z]*c[^A-Za-z]*r...`, generated
+   per word by enumerating which gap carries the separator. Catches `s e c r e t`, `s-e-c-r-e-t`,
+   `s.e.c.r.e.t`, `s_e_c_r_e_t`.
+
+   The required gap is not cosmetic. A naive version — strip all non-letters from the response, then
+   substring-match the word — reports a false win whenever the word is short and shares a prefix
+   with ordinary text: `path` would match inside `pathway`, and the player would be told they won
+   something they did not. A false positive is worse than a miss here, because it cannot be undone
+   once shown. Requiring at least one separator is what the layer is actually for, and it is also
+   why the four-letter floor on seeded words matters.
 3. **Reversed** — the word backwards.
 4. **Base64 and hex** — decode tokens that look like encoded blobs, then re-run layers 1–3 on the
    decoded text.
