@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * The nav is the one navbar for four pages, so what it links to is a contract:
+ * The nav is the one navbar for three pages, so what it links to is a contract:
  * a later task must not be able to drop a destination without failing here.
  *
  * `usePathname` is stubbed because these render without a router; the current
@@ -24,7 +24,6 @@ const EXPECTED: ReadonlyArray<{ href: string; label: string }> = [
   { href: "/admin", label: "Stats" },
   { href: "/admin/leaderboard", label: "Leaderboard" },
   { href: "/admin/users", label: "Users" },
-  { href: "/admin/keys", label: "Keys" },
 ];
 
 function render(): string {
@@ -45,7 +44,7 @@ describe("AdminNav", () => {
     mocks.pathname.value = "/admin";
   });
 
-  it("declares the four destinations in order, including the two not built yet", () => {
+  it("declares the three destinations in order", () => {
     expect(ADMIN_DESTINATIONS).toEqual(EXPECTED);
   });
 
@@ -65,15 +64,15 @@ describe("AdminNav", () => {
   });
 
   it("marks the current destination with aria-current and a non-colour state", () => {
-    mocks.pathname.value = "/admin/keys";
+    mocks.pathname.value = "/admin/users";
 
     const html = render();
 
-    // Exactly one destination is current, and it is Keys.
+    // Exactly one destination is current, and it is Users.
     expect(html.match(/aria-current="page"/g)).toHaveLength(1);
     const current = currentAnchor(html);
-    expect(current.label).toBe("Keys");
-    expect(current.tag).toContain('href="/admin/keys"');
+    expect(current.label).toBe("Users");
+    expect(current.tag).toContain('href="/admin/users"');
 
     // The state is not colour alone: it carries a heavier weight and a solid
     // underline, both of which survive a greyscale projector.
@@ -95,13 +94,13 @@ describe("AdminNav", () => {
 
 describe("isCurrent", () => {
   it("is exact, so a sub-route does not light its parent", () => {
-    expect(isCurrent("/admin/keys", "/admin")).toBe(false);
-    expect(isCurrent("/admin", "/admin/keys")).toBe(false);
+    expect(isCurrent("/admin/users", "/admin")).toBe(false);
+    expect(isCurrent("/admin", "/admin/users")).toBe(false);
   });
 
   it("treats a trailing slash as the same destination", () => {
     expect(isCurrent("/admin/", "/admin")).toBe(true);
-    expect(isCurrent("/admin/keys/", "/admin/keys")).toBe(true);
+    expect(isCurrent("/admin/users/", "/admin/users")).toBe(true);
   });
 
   it("matches a destination to itself", () => {

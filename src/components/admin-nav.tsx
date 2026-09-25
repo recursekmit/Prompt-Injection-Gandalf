@@ -7,13 +7,9 @@ import type * as React from "react";
 /**
  * The admin console's own navigation.
  *
- * One nav for four pages, rendered once by `src/app/admin/layout.tsx`. A nav
+ * One nav for three pages, rendered once by `src/app/admin/layout.tsx`. A nav
  * per page is the thing this exists to avoid: three copies drift, and the one
  * that is forgotten is the one that matters.
- *
- * Two of the four destinations are built by later tasks. They are linked here
- * anyway — the paths are fixed, and a nav that only gains a link when the page
- * lands is a nav that has to be edited twice.
  *
  * A client component because `usePathname` is the simplest way to know which
  * destination is current. It holds no data and takes no props, so nothing
@@ -30,7 +26,6 @@ export const ADMIN_DESTINATIONS: readonly Destination[] = [
   { href: "/admin", label: "Stats" },
   { href: "/admin/leaderboard", label: "Leaderboard" },
   { href: "/admin/users", label: "Users" },
-  { href: "/admin/keys", label: "Keys" },
 ];
 
 /** Strips a trailing slash so `/admin/` and `/admin` are the same destination. */
@@ -40,7 +35,7 @@ function normalise(path: string): string {
 
 /**
  * Exact match, deliberately. A prefix test would light up both "Stats" and
- * "Keys" on `/admin/keys`, and a nav that marks two destinations current is
+ * "Users" on `/admin/users`, and a nav that marks two destinations current is
  * telling the operator nothing.
  */
 export function isCurrent(pathname: string, href: string): boolean {
