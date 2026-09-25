@@ -35,6 +35,13 @@ export function reasoningEffortFor(tier: Tier): "low" | "medium" | "high" {
 }
 
 /**
+ * Characters per token assumed by the fallback estimate below. Deliberately
+ * crude: it only runs when the SDK hands back no usage at all, and it can be off
+ * by a wide margin in either direction.
+ */
+const CHARS_PER_TOKEN = 4;
+
+/**
  * Sends the prompt history to the guardian and returns its reply.
  *
  * Non-streaming on purpose: the reply must be scanned in full for the secret
@@ -49,7 +56,7 @@ export async function callGuardian(
   tier: Tier,
 ): Promise<string> {
   try {
-    return await withGroqKey(async (client) => {
+    return await withGroqKey(async (client, _keyIndex, reportTokens) => {
       const completion = await client.chat.completions.create({
         model: GUARDIAN_MODEL,
         messages: [...messages],
@@ -63,6 +70,22 @@ export async function callGuardian(
       // describe the defence logic, so it is never read, logged, returned or
       // stored anywhere past this line.
       const { content } = completion.choices[0]?.message ?? {};
+
+      // The token cost is reported before the content is judged: a reply that
+      // came back empty still spent the tokens Groq billed, and undercounting
+      // them would let the pool walk into a token 429. `usage.total_tokens` is
+      // the SDK's own count of prompt + completion and already includes the
+      // reasoning tokens, which count against the key's token budget; only when
+      // the response carries no usable usage does this fall back to a
+      // characters-derived estimate, which may be off by a wide margin.
+      const usage = completion.usage;
+      if (usage !== undefined && Number.isFinite(usage.total_tokens) && usage.total_tokens > 0) {
+        reportTokens?.(usage.total_tokens);
+      } else {
+        const promptChars = messages.reduce((total, message) => total + message.content.length, 0);
+        const replyChars = typeof content === "string" ? content.length : 0;
+        reportTokens?.(Math.ceil((promptChars + replyChars) / CHARS_PER_TOKEN));
+      }
 
       if (typeof content !== "string" || content.length === 0) {
         throw new GuardianUnavailableError();

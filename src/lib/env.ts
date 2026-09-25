@@ -52,6 +52,21 @@ export const env = {
   groqApiKeys: parseList(required("GROQ_API_KEYS")),
   groqKeyRpd: optionalInt("GROQ_KEY_RPD", 1000),
   groqKeyRpm: optionalInt("GROQ_KEY_RPM", 30),
+  /**
+   * Tokens per minute per key. The measured free-tier ceiling for
+   * openai/gpt-oss-120b is 8000 (`x-ratelimit-limit-tokens`), and reasoning
+   * tokens count toward it, so this -- not RPM -- is the real bottleneck.
+   */
+  groqKeyTpm: optionalInt("GROQ_KEY_TPM", 8000),
+  /**
+   * The whole pool's shared daily token budget. Groq's `tokens per day (TPD)`
+   * limit is enforced per organization, not per key: every key in the pool
+   * belongs to the same org (measured: all four report org_01m3be03f0ev1s5mpvq690fe2s)
+   * and one 200000-token ceiling covers them all. Adding keys therefore does
+   * not add daily token capacity. This is the pool's real ceiling; the per-key
+   * numbers above govern the minute and the request budget only.
+   */
+  groqPoolTpd: optionalInt("GROQ_POOL_TPD", 200_000),
   /** Lowercased so the admin allowlist comparison is case-insensitive. */
   adminEmails: parseList(process.env.ADMIN_EMAILS ?? "").map((email) =>
     email.toLowerCase(),

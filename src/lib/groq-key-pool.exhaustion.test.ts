@@ -16,8 +16,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  */
 const fake = vi.hoisted(() => {
   interface LogRow {
+    id?: string;
     keyIndex: number;
     createdAt: Date;
+    tokens?: number;
   }
   interface DailyRow {
     keyIndex: number;
@@ -34,6 +36,7 @@ const fake = vi.hoisted(() => {
     daily: [] as DailyRow[],
     cooldowns: [] as CooldownRow[],
     prunes: 0,
+    nextId: 0,
     /** Number of `$transaction` calls: one per pool poll, plus describePool. */
     transactions: 0,
   };
@@ -42,6 +45,8 @@ const fake = vi.hoisted(() => {
     groqApiKeys: ["k0", "k1", "k2", "k3"] as string[],
     groqKeyRpd: 1000,
     groqKeyRpm: 30,
+    groqKeyTpm: 8000,
+    groqPoolTpd: 200_000,
     queueMaxWaitMs: 12_000,
     queuePollMs: 300,
   };
@@ -51,19 +56,24 @@ const fake = vi.hoisted(() => {
     state.daily = [];
     state.cooldowns = [];
     state.prunes = 0;
+    state.nextId = 0;
     state.transactions = 0;
     env.groqApiKeys = ["k0", "k1", "k2", "k3"];
     env.groqKeyRpd = 1000;
     env.groqKeyRpm = 30;
+    env.groqKeyTpm = 8000;
+    env.groqPoolTpd = 200_000;
     env.queueMaxWaitMs = 12_000;
     env.queuePollMs = 300;
   };
 
   const client = {
     $queryRaw: async (_strings: TemplateStringsArray, ...values: unknown[]) => {
-      // Positional, exactly as the real query is built: the window start comes
-      // first, today's UTC date is the final parameter.
-      const since = values[0] as Date;
+      // Positional, exactly as the real query is built: the sliding-minute
+      // window start comes first, the trailing-day window start second,
+      // today's UTC date always last.
+      const minuteSince = values[0] as Date;
+      const daySince = values[1] as Date;
       const today = values[values.length - 1] as Date;
       const indices = new Set<number>();
       for (const log of state.logs) indices.add(log.keyIndex);
@@ -71,7 +81,10 @@ const fake = vi.hoisted(() => {
       for (const row of state.cooldowns) indices.add(row.keyIndex);
       return [...indices].sort((a, b) => a - b).map((keyIndex) => {
         const windowed = state.logs.filter(
-          (log) => log.keyIndex === keyIndex && log.createdAt.getTime() > since.getTime(),
+          (log) => log.keyIndex === keyIndex && log.createdAt.getTime() > minuteSince.getTime(),
+        );
+        const trailingDay = state.logs.filter(
+          (log) => log.keyIndex === keyIndex && log.createdAt.getTime() > daySince.getTime(),
         );
         const daily = state.daily.find(
           (row) => row.keyIndex === keyIndex && row.date.getTime() === today.getTime(),
@@ -80,20 +93,36 @@ const fake = vi.hoisted(() => {
         return {
           keyIndex,
           rollingCount: windowed.length,
+          rollingTokens: windowed.reduce((sum, log) => sum + (log.tokens ?? 0), 0),
           lastRequestAt:
             windowed.length > 0
               ? new Date(Math.max(...windowed.map((log) => log.createdAt.getTime())))
               : null,
-          dailyCount: daily?.count ?? 0,
+          dailyCount: trailingDay.length,
+          dailyTokens: trailingDay.reduce((sum, log) => sum + (log.tokens ?? 0), 0),
+          calendarCount: daily?.count ?? 0,
           exhaustedUntil: cooldown?.exhaustedUntil ?? null,
         };
       });
     },
     apiKeyRequestLog: {
       create: async (args: { data: { keyIndex: number } }) => {
-        const createdAt = new Date();
-        state.logs.push({ keyIndex: args.data.keyIndex, createdAt });
-        return { id: `log-${state.logs.length}`, keyIndex: args.data.keyIndex, createdAt };
+        state.nextId += 1;
+        const row: LogRow = {
+          id: `log-${state.nextId}`,
+          keyIndex: args.data.keyIndex,
+          createdAt: new Date(),
+          tokens: 0,
+        };
+        state.logs.push(row);
+        return { ...row };
+      },
+      update: async (args: { where: { id: string }; data: { tokens: number } }) => {
+        const row = state.logs.find((log) => log.id === args.where.id);
+        if (row !== undefined) {
+          row.tokens = args.data.tokens;
+        }
+        return row ?? null;
       },
       deleteMany: async (args: { where: { createdAt: { lt: Date } } }) => {
         const before = state.logs.length;
