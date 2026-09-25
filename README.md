@@ -90,6 +90,25 @@ npm run dev
 
 Open http://localhost:3000, sign up, pick a tier, and start talking.
 
+### 5. Level backdrops (optional)
+
+Each of the six levels paints its own atmosphere — warm amber archive, cold blue vault, still water,
+sunlit sandstone, violet void, gold light — as CSS gradients, a vignette and a grain, so no binary
+assets are needed to run the game.
+
+To use real photography instead, drop a JPEG at:
+
+```
+public/levels/1.jpg   # level 1, The Archivist
+public/levels/2.jpg   # level 2, The Warden
+...
+public/levels/6.jpg   # level 6, The Seal
+```
+
+The filename is the level number. A level with a file uses it as the backdrop, layered under the
+vignette; a level without one keeps the CSS treatment, so the six can be added one at a time. The
+server checks for the files on each request, so a new file needs no restart and no configuration.
+
 ## Development notes
 
 - `npm test` runs the unit suite (Vitest). `npm run build` type-checks and builds.

@@ -3,7 +3,9 @@
 import Link from "next/link";
 import type * as React from "react";
 
+import { LevelHeading, LevelTagline } from "@/components/level-heading";
 import { WardenMark } from "@/components/warden-mark";
+import { identityFor } from "@/lib/seal-identities";
 import type { LevelNumber, LevelProgressDto } from "@/lib/types";
 
 /**
@@ -11,23 +13,15 @@ import type { LevelNumber, LevelProgressDto } from "@/lib/types";
  * screen, the card for a seal already broken, the celebration when one breaks
  * now, and the end of the run.
  *
- * They share a shell so the six states read as one screen that changed rather
- * than six unrelated pages. Copy is short and concrete: the player is reading
- * this in a loud room with one eye on the room and one on the laptop.
+ * They share a shell and each opens with the same `LevelHeading`, so the six
+ * states read as one screen that changed rather than six unrelated pages. Copy
+ * is short and concrete: the player is reading this in a loud room with one eye
+ * on the room and one on the laptop.
+ *
+ * The panels are deliberately translucent over the level's backdrop, and dark
+ * enough that the lightest level (sunlit sandstone) and the most saturated
+ * (the violet void) both stay readable behind them.
  */
-
-const ORDINAL: Record<LevelNumber, string> = {
-  1: "First",
-  2: "Second",
-  3: "Third",
-  4: "Fourth",
-  5: "Fifth",
-  6: "Sixth",
-};
-
-function ordinal(level: LevelNumber): string {
-  return ORDINAL[level];
-}
 
 function Panel({
   children,
@@ -38,12 +32,14 @@ function Panel({
 }): React.JSX.Element {
   const border =
     tone === "amber"
-      ? "border-amber-500/40 bg-amber-500/[0.06]"
+      ? "border-amber-500/40 bg-amber-950/25"
       : tone === "locked"
-        ? "border-stone-800 bg-stone-900/50"
-        : "border-stone-800 bg-stone-900/40";
+        ? "border-stone-800/70 bg-stone-950/80"
+        : "border-stone-800/70 bg-stone-950/70";
   return (
-    <section className={`rounded-xl border ${border} px-6 py-8 sm:px-8 sm:py-10`}>
+    <section
+      className={`rounded-xl border ${border} px-6 py-8 backdrop-blur-sm sm:px-8 sm:py-10`}
+    >
       {children}
     </section>
   );
@@ -70,7 +66,13 @@ function PrimaryAction({
   );
 }
 
-function Eyebrow({ children, tone = "muted" }: { readonly children: React.ReactNode; readonly tone?: "muted" | "amber" }): React.JSX.Element {
+function Eyebrow({
+  children,
+  tone = "muted",
+}: {
+  readonly children: React.ReactNode;
+  readonly tone?: "muted" | "amber";
+}): React.JSX.Element {
   return (
     <p
       className={`font-mono text-[11px] uppercase tracking-[0.3em] ${
@@ -95,38 +97,41 @@ export function LevelGate({
   readonly onStart: () => void;
 }): React.JSX.Element {
   return (
-    <Panel>
-      <Eyebrow>seal {level} of six · open now</Eyebrow>
-      <h2 className="mt-4 text-3xl font-semibold tracking-tight text-stone-100 sm:text-4xl">
-        The {ordinal(level)} Seal
-      </h2>
-      <p className="mt-4 max-w-xl text-sm leading-6 text-stone-400">
-        One warden keeps one word behind this seal. It will not hand the word over
-        — but a careful question can make it say more than it means to.
-      </p>
-      <p className="mt-2 max-w-xl text-sm leading-6 text-stone-500">
-        Nothing is lost by trying. Only by giving up.
-      </p>
-
-      {error !== null ? (
-        <p
-          role="alert"
-          className="mt-6 rounded-md border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm leading-6 text-red-200"
-        >
-          {error}
+    <div className="flex flex-col gap-8">
+      <LevelHeading level={level} />
+      <Panel>
+        <Eyebrow>seal {level} of six · not yet opened</Eyebrow>
+        <div className="mt-5">
+          <LevelTagline level={level} />
+        </div>
+        <p className="mt-5 max-w-xl text-sm leading-6 text-stone-400">
+          One guardian keeps one word behind this seal. It will not hand the word
+          over — but a careful question can make it say more than it means to.
         </p>
-      ) : null}
+        <p className="mt-2 max-w-xl text-sm leading-6 text-stone-500">
+          Nothing is lost by trying. Only by giving up.
+        </p>
 
-      <div>
-        <PrimaryAction onClick={onStart} disabled={starting}>
-          {starting ? "Opening the seal…" : `Start level ${level}`}
-        </PrimaryAction>
-      </div>
+        {error !== null ? (
+          <p
+            role="alert"
+            className="mt-6 rounded-md border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm leading-6 text-red-200"
+          >
+            {error}
+          </p>
+        ) : null}
 
-      <p className="mt-4 font-mono text-[11px] uppercase tracking-widest text-stone-600">
-        the wardens open in order
-      </p>
-    </Panel>
+        <div>
+          <PrimaryAction onClick={onStart} disabled={starting}>
+            {starting ? "Opening the seal…" : `Start level ${level}`}
+          </PrimaryAction>
+        </div>
+
+        <p className="mt-4 font-mono text-[11px] uppercase tracking-widest text-stone-600">
+          the seals open in order
+        </p>
+      </Panel>
+    </div>
   );
 }
 
@@ -143,52 +148,55 @@ export function LockedSeal({
   readonly onGoToCurrent: () => void;
 }): React.JSX.Element {
   return (
-    <Panel tone="locked">
-      <div className="flex items-start gap-5">
-        <span aria-hidden="true" className="mt-1 text-stone-500">
-          <svg viewBox="0 0 16 16" className="h-8 w-8">
-            <rect
-              x="3.5"
-              y="7"
-              width="9"
-              height="6.5"
-              rx="1.3"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-            />
-            <path
-              d="M5.75 7V5.5a2.25 2.25 0 0 1 4.5 0V7"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
-          </svg>
-        </span>
-        <div className="min-w-0">
-          <Eyebrow>chained</Eyebrow>
-          <h2 className="mt-3 text-2xl font-semibold tracking-tight text-stone-100 sm:text-3xl">
-            Seal {level} is locked
-          </h2>
-          <p className="mt-3 max-w-xl text-sm leading-6 text-stone-400">
-            The wardens open one at a time. The next seal that will answer is level{" "}
-            {currentLevel}.
-          </p>
-          {notice !== null ? (
-            <p className="mt-3 max-w-xl text-sm leading-6 text-stone-500">{notice}</p>
-          ) : null}
+    <div className="flex flex-col gap-8">
+      <LevelHeading level={level} />
+      <Panel tone="locked">
+        <div className="flex items-start gap-5">
+          <span aria-hidden="true" className="mt-1 text-stone-500">
+            <svg viewBox="0 0 16 16" className="h-8 w-8">
+              <rect
+                x="3.5"
+                y="7"
+                width="9"
+                height="6.5"
+                rx="1.3"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              />
+              <path
+                d="M5.75 7V5.5a2.25 2.25 0 0 1 4.5 0V7"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
+          </span>
+          <div className="min-w-0">
+            <Eyebrow>chained</Eyebrow>
+            <h3 className="mt-3 text-2xl font-semibold tracking-tight text-stone-100 sm:text-3xl">
+              Seal {level} is locked
+            </h3>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-stone-400">
+              The seals open one at a time. The next seal that will answer is level{" "}
+              {currentLevel}.
+            </p>
+            {notice !== null ? (
+              <p className="mt-3 max-w-xl text-sm leading-6 text-stone-500">{notice}</p>
+            ) : null}
 
-          <div>
-            <PrimaryAction onClick={onGoToCurrent}>Go to level {currentLevel}</PrimaryAction>
+            <div>
+              <PrimaryAction onClick={onGoToCurrent}>Go to level {currentLevel}</PrimaryAction>
+            </div>
+
+            <p className="mt-4 font-mono text-[11px] uppercase tracking-widest text-stone-600">
+              sealed until level {level - 1} falls
+            </p>
           </div>
-
-          <p className="mt-4 font-mono text-[11px] uppercase tracking-widest text-stone-600">
-            sealed until level {level - 1} falls
-          </p>
         </div>
-      </div>
-    </Panel>
+      </Panel>
+    </div>
   );
 }
 
@@ -205,19 +213,19 @@ export function SealBroken({
   readonly onGoToCurrent: () => void;
 }): React.JSX.Element {
   return (
-    <Panel>
-      <Eyebrow tone="amber">seal broken</Eyebrow>
-      <h2 className="mt-4 text-2xl font-semibold tracking-tight text-stone-100 sm:text-3xl">
-        The {ordinal(level)} Seal
-      </h2>
-      <p className="mt-5 text-sm text-stone-400">The word it kept</p>
-      <p className="mt-2 font-mono text-3xl font-semibold tracking-wide text-amber-300 sm:text-4xl">
-        {word}
-      </p>
-      <div>
-        <PrimaryAction onClick={onGoToCurrent}>Back to level {currentLevel}</PrimaryAction>
-      </div>
-    </Panel>
+    <div className="flex flex-col gap-8">
+      <LevelHeading level={level} />
+      <Panel>
+        <Eyebrow tone="amber">seal broken</Eyebrow>
+        <p className="mt-5 text-sm text-stone-400">The word it kept</p>
+        <p className="mt-2 font-display text-4xl leading-none font-semibold tracking-wide text-amber-200 sm:text-5xl">
+          {word}
+        </p>
+        <div>
+          <PrimaryAction onClick={onGoToCurrent}>Back to level {currentLevel}</PrimaryAction>
+        </div>
+      </Panel>
+    </div>
   );
 }
 
@@ -225,7 +233,11 @@ export function SealBroken({
  * The end of the run: six words, in the order they were taken. This is the
  * payoff, so it is the one place all six words are shown together.
  */
-function RunSummary({ levels }: { readonly levels: readonly LevelProgressDto[] }): React.JSX.Element {
+function RunSummary({
+  levels,
+}: {
+  readonly levels: readonly LevelProgressDto[];
+}): React.JSX.Element {
   const words = levels.filter((entry) => entry.revealedWord !== null);
   return (
     <div className="mt-8">
@@ -238,7 +250,7 @@ function RunSummary({ levels }: { readonly levels: readonly LevelProgressDto[] }
             <span className="font-mono text-[10px] tracking-widest text-stone-500">
               {String(entry.level).padStart(2, "0")}
             </span>
-            <span className="font-mono text-sm text-amber-200">{entry.revealedWord}</span>
+            <span className="font-display text-base text-amber-200">{entry.revealedWord}</span>
           </span>
         ))}
       </div>
@@ -282,12 +294,13 @@ export function SealReveal({
   readonly onStartNext: () => void;
 }): React.JSX.Element {
   const isFinal = level === 6 || everyLevelBeaten;
+  const identity = identityFor(level);
 
   return (
     <section
       role="status"
-      aria-label={`Level ${level} complete. The word was ${word}.`}
-      className="rounded-xl border border-amber-500/50 bg-gradient-to-b from-amber-500/[0.12] to-amber-500/[0.02] px-6 py-8 sm:px-8 sm:py-10 motion-safe:animate-[reveal_500ms_ease-out]"
+      aria-label={`Level ${level}, ${identity.name}, complete. The word was ${word}.`}
+      className="rounded-xl border border-amber-500/50 bg-gradient-to-b from-amber-500/[0.16] to-stone-950/70 px-6 py-8 backdrop-blur-sm sm:px-8 sm:py-10 motion-safe:animate-[reveal_500ms_ease-out]"
     >
       <div className="flex items-start gap-5">
         <span aria-hidden="true" className="mt-1 text-amber-400">
@@ -298,11 +311,14 @@ export function SealReveal({
             {isFinal ? "the last seal breaks" : "the seal breaks"}
           </Eyebrow>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight text-stone-100 sm:text-4xl">
-            {isFinal ? "Every seal is broken" : `Level ${level} yields`}
+            {isFinal ? "Every seal is broken" : `${identity.name} yields`}
           </h2>
+          <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.4em] text-stone-400">
+            {identity.title}
+          </p>
 
           <p className="mt-6 text-sm text-stone-400">The word it kept</p>
-          <p className="mt-2 font-mono text-4xl font-semibold tracking-wide text-amber-300 sm:text-5xl">
+          <p className="mt-2 font-display text-5xl leading-none font-semibold tracking-wide text-amber-200 sm:text-6xl">
             {word}
           </p>
           {revealAttempts === null ? null : (

@@ -2,10 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type * as React from "react";
 
+import { SignOutButton } from "@/components/sign-out-button";
 import type { SessionStatus } from "@/generated/prisma/client";
 import { auth } from "@/lib/auth";
 import { isLevelNumber } from "@/lib/guardian/levels";
 import { prisma } from "@/lib/prisma";
+import { identityFor } from "@/lib/seal-identities";
 import type { HistoryEntryDto, LevelNumber } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -110,22 +112,36 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
 
   return (
     <div className="flex flex-1 flex-col bg-stone-950 text-stone-200">
-      <header className="border-b border-stone-800 bg-stone-900/40">
-        <div className="mx-auto flex w-full max-w-4xl flex-wrap items-center justify-between gap-3 px-6 py-4">
-          <span className="text-lg font-semibold tracking-tight text-stone-100">
-            Prompt<span className="text-amber-400">Guard</span>
-          </span>
-          <Link
-            href="/"
-            className="text-sm text-stone-400 underline-offset-4 transition-colors hover:text-amber-300 hover:underline"
-          >
-            Back to the archive
-          </Link>
+      <header className="border-b border-stone-800 bg-stone-950/80">
+        <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-6 py-4">
+          <div className="flex items-baseline gap-3">
+            <span className="font-display text-xl leading-none font-semibold tracking-tight text-stone-100">
+              Prompt<span className="text-amber-400">Guard</span>
+            </span>
+            <span aria-hidden="true" className="hidden h-4 w-px self-center bg-stone-700 sm:block" />
+            <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-stone-500">
+              the sealed archive
+            </span>
+          </div>
+          <nav className="flex flex-wrap items-center gap-4 text-sm">
+            <Link
+              href="/"
+              className="font-mono text-[11px] uppercase tracking-[0.2em] text-stone-400 underline-offset-4 transition-colors hover:text-amber-300 hover:underline"
+            >
+              The seals
+            </Link>
+            {email !== "" ? (
+              <span className="hidden text-stone-500 sm:inline">{email}</span>
+            ) : null}
+            <SignOutButton />
+          </nav>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-12">
-        <h1 className="text-3xl font-semibold tracking-tight text-stone-100">Your record</h1>
+      <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-12">
+        <h1 className="font-display text-3xl font-semibold tracking-tight text-stone-100">
+          Your record
+        </h1>
         <p className="mt-2 text-sm text-stone-400">
           Every session you have opened, newest first.
         </p>
@@ -138,10 +154,13 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
                 key={level}
                 className="rounded-lg border border-stone-800 bg-stone-900/60 px-5 py-4"
               >
-                <p className="font-mono text-[11px] uppercase tracking-widest text-stone-500">
+                <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-stone-500">
                   Level {level}
                 </p>
-                <p className="mt-2 text-2xl font-semibold text-stone-100">
+                <p className="mt-1 font-display text-lg leading-tight text-stone-200">
+                  {identityFor(level).name}
+                </p>
+                <p className="mt-3 text-2xl font-semibold text-stone-100">
                   {won}
                   <span className="text-base font-normal text-stone-500"> / {total}</span>
                 </p>
@@ -169,7 +188,7 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
             <div className="overflow-x-auto rounded-lg border border-stone-800">
               <table className="w-full min-w-[40rem] border-collapse text-left text-sm">
                 <thead className="bg-stone-900/60">
-                  <tr className="font-mono text-[11px] uppercase tracking-widest text-stone-500">
+                  <tr className="font-mono text-[11px] uppercase tracking-[0.2em] text-stone-500">
                     <th scope="col" className="px-5 py-3 font-normal">Level</th>
                     <th scope="col" className="px-5 py-3 font-normal">Status</th>
                     <th scope="col" className="px-5 py-3 font-normal">Attempts</th>
@@ -180,7 +199,12 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
                 <tbody>
                   {entries.map((entry) => (
                     <tr key={entry.id} className="border-t border-stone-800/80">
-                      <td className="px-5 py-3 text-stone-200">Level {entry.level}</td>
+                      <td className="px-5 py-3 text-stone-200">
+                        Level {entry.level}
+                        <span className="ml-2 text-stone-500">
+                          {identityFor(entry.level).name}
+                        </span>
+                      </td>
                       <td className="px-5 py-3">
                         <span
                           className={
@@ -206,7 +230,9 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
                         {entry.wordText === null ? (
                           <span className="text-stone-600">—</span>
                         ) : (
-                          <span className="font-mono text-amber-300">{entry.wordText}</span>
+                          <span className="font-display text-base text-amber-200">
+                            {entry.wordText}
+                          </span>
                         )}
                       </td>
                     </tr>

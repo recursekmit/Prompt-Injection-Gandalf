@@ -2,6 +2,7 @@ import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
+import { LevelHeading, LevelTagline } from "@/components/level-heading";
 import { LevelChat, Transcript } from "@/components/level-chat";
 import {
   LevelGate,
@@ -10,7 +11,8 @@ import {
   SealReveal,
 } from "@/components/level-panels";
 import { SealBand } from "@/components/seal-band";
-import type { AttemptDto, LevelProgressDto, SessionDto } from "@/lib/types";
+import { LEVEL_IDENTITIES } from "@/lib/seal-identities";
+import type { AttemptDto, LevelNumber, LevelProgressDto, SessionDto } from "@/lib/types";
 
 /**
  * These render the real components rather than asserting on their source, so a
@@ -27,6 +29,13 @@ const LEVELS: readonly LevelProgressDto[] = [
   { level: 5, status: "LOCKED", revealedWord: null },
   { level: 6, status: "LOCKED", revealedWord: null },
 ];
+
+/** The same band with the open seal one level earlier, so level 2 is CURRENT. */
+const LEVELS_AT_2: readonly LevelProgressDto[] = LEVELS.map((entry) =>
+  entry.level === 2
+    ? { level: 2, status: "CURRENT" as const, revealedWord: null }
+    : entry,
+);
 
 const ATTEMPTS: readonly AttemptDto[] = [
   {
@@ -61,37 +70,72 @@ function render(element: ReturnType<typeof h>): string {
   return renderToStaticMarkup(element);
 }
 
-describe("SealBand", () => {
-  it("labels each state in words, not colour alone", () => {
-    const html = render(
-      h(SealBand, {
-        levels: LEVELS,
-        currentLevel: 3,
-        selected: 3,
-        everyLevelBeaten: false,
-        onSelect: () => undefined,
-      }),
-    );
+function band(
+  levels: readonly LevelProgressDto[],
+  overrides?: { selected?: LevelNumber; everyLevelBeaten?: boolean },
+): string {
+  return render(
+    h(SealBand, {
+      levels,
+      selected: overrides?.selected ?? 3,
+      everyLevelBeaten: overrides?.everyLevelBeaten ?? false,
+      onSelect: () => undefined,
+    }),
+  );
+}
 
-    expect(html).toContain("Level");
-    expect(html).toContain("of");
-    expect(html).toContain("3"); // "Level 3 of 6"
-    expect(html).toContain("open now");
+describe("LevelHeading", () => {
+  it("names the level, its title and its place in the run", () => {
+    const html = render(h(LevelHeading, { level: 3 }));
+    expect(html).toContain("Level 3 of 6");
+    expect(html).toContain("The Mirror");
+    expect(html).toContain("REFLECTOR OF INTENT");
+  });
+
+  it("gives every level a different name and title", () => {
+    for (const level of [1, 2, 3, 4, 5, 6] as const) {
+      const html = render(h(LevelHeading, { level }));
+      expect(html).toContain(LEVEL_IDENTITIES[level].name);
+      expect(html).toContain(LEVEL_IDENTITIES[level].title);
+    }
+  });
+});
+
+describe("LevelTagline", () => {
+  it("shows the level's own tagline, verbatim", () => {
+    const html = render(h(LevelTagline, { level: 5 }));
+    expect(html).toContain(
+      "Here, lack of an answer is also an answer. What you don&#x27;t say can matter as much as what you do.",
+    );
+  });
+});
+
+describe("SealBand", () => {
+  it("labels the whole band with how many seals are broken", () => {
+    const html = band(LEVELS);
+    expect(html).toContain("the six seals");
+    expect(html).toContain("2 of 6 seals broken");
+  });
+
+  it("labels each state in words, not colour alone", () => {
+    const html = band(LEVELS);
+    expect(html).toContain("reflection"); // level 3's seal-band label, CURRENT
     expect(html).toContain("seal broken");
     expect(html).toContain("locked");
+    expect(html).toContain("after level 3");
+  });
+
+  it("gives the open seal the label from the identity table", () => {
+    const atThree = band(LEVELS);
+    expect(atThree).toContain("reflection");
+    expect(atThree).not.toContain("open now");
+
+    const atTwo = band(LEVELS_AT_2);
+    expect(atTwo).toContain("open now");
   });
 
   it("shows the extracted word on a completed seal only", () => {
-    const html = render(
-      h(SealBand, {
-        levels: LEVELS,
-        currentLevel: 3,
-        selected: 3,
-        everyLevelBeaten: false,
-        onSelect: () => undefined,
-      }),
-    );
-
+    const html = band(LEVELS);
     expect(html).toContain("compass");
     expect(html).toContain("lantern");
     // The live level's word is not in the response at all, and certainly not here.
@@ -99,43 +143,23 @@ describe("SealBand", () => {
   });
 
   it("marks the current step for assistive technology", () => {
-    const html = render(
-      h(SealBand, {
-        levels: LEVELS,
-        currentLevel: 3,
-        selected: 3,
-        everyLevelBeaten: false,
-        onSelect: () => undefined,
-      }),
-    );
-
-    expect(html).toContain('aria-current="step"');
+    expect(band(LEVELS)).toContain('aria-current="step"');
   });
 
   it("explains what a locked seal waits on", () => {
-    const html = render(
-      h(SealBand, {
-        levels: LEVELS,
-        currentLevel: 3,
-        selected: 3,
-        everyLevelBeaten: false,
-        onSelect: () => undefined,
-      }),
-    );
-
+    const html = band(LEVELS);
     expect(html).toContain("Level 4, locked. Break the seal of level 3 first.");
     expect(html).toContain("after level 3");
   });
 
+  it("names the open seal's label in its accessible name", () => {
+    expect(band(LEVELS)).toContain("Level 3, the open seal: reflection.");
+  });
+
   it("says all six are broken when they are", () => {
-    const html = render(
-      h(SealBand, {
-        levels: LEVELS.map((entry) => ({ ...entry, status: "COMPLETED" as const })),
-        currentLevel: 6,
-        selected: 6,
-        everyLevelBeaten: true,
-        onSelect: () => undefined,
-      }),
+    const html = band(
+      LEVELS.map((entry) => ({ ...entry, status: "COMPLETED" as const })),
+      { selected: 6, everyLevelBeaten: true },
     );
     expect(html).toContain("All six seals broken");
   });
@@ -151,7 +175,9 @@ describe("LevelGate", () => {
         onStart: () => undefined,
       }),
     );
-    expect(html).toContain("The Third Seal");
+    expect(html).toContain("The Mirror");
+    expect(html).toContain("REFLECTOR OF INTENT");
+    expect(html).toContain("I do not lie."); // the tagline, in the gate's own panel
     expect(html).toContain("Start level 3");
     expect(html).toContain("Nothing is lost by trying");
   });
@@ -221,7 +247,8 @@ describe("SealReveal", () => {
       }),
     );
     expect(html).toContain("the seal breaks");
-    expect(html).toContain("Level 2 yields");
+    expect(html).toContain("The Warden yields");
+    expect(html).toContain("GUARDIAN OF THE ARCHIVE");
     expect(html).toContain("lantern");
     expect(html).toContain("Taken in 4 attempts");
     expect(html).toContain("Start level 3");
@@ -297,7 +324,24 @@ describe("LevelChat", () => {
     expect(html).toContain("Surrender");
   });
 
-  it("keeps the composer keyboard-documented and capped", () => {
+  it("wears the level's identity and its own placeholder", () => {
+    const html = render(
+      h(LevelChat, {
+        session: SESSION,
+        error: null,
+        surrenderBusy: false,
+        onSend: async () => true,
+        onSurrender: () => undefined,
+        onContinue: () => undefined,
+      }),
+    );
+    expect(html).toContain("The Mirror");
+    expect(html).toContain("Ask the mirror something...");
+    // The tagline panel sits above the composer, inside the chat.
+    expect(html).toContain("I do not lie.");
+  });
+
+  it("keeps the composer keyboard-documented, capped and sendable", () => {
     const html = render(
       h(LevelChat, {
         session: SESSION,
@@ -312,6 +356,8 @@ describe("LevelChat", () => {
     expect(html).toContain("Shift+Enter");
     expect(html.toLowerCase()).toContain('maxlength="2000"');
     expect(html).toContain("Send");
+    // The send button carries a drawn glyph, not a typed character.
+    expect(html).toContain("<svg");
   });
 
   it("drops the composer once the session is closed", () => {

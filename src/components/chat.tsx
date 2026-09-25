@@ -15,6 +15,7 @@ import { SealBand } from "@/components/seal-band";
 import { SignOutButton } from "@/components/sign-out-button";
 import type {
   AttemptResponse,
+  LevelArtwork,
   LevelNumber,
   LevelProgressDto,
   ProgressResponse,
@@ -79,7 +80,17 @@ interface Reveal {
 
 interface GameShellProps {
   readonly email: string;
+  /** Level number to public URL for the photographic backdrops that exist. */
+  readonly artwork: LevelArtwork;
 }
+
+/**
+ * The custom property is set inline rather than in a stylesheet because only the
+ * server can see which files are actually on disk. `--skin-art` has no static
+ * default, so leaving it off leaves the CSS treatment in `globals.css` as the
+ * whole backdrop.
+ */
+type SkinStyle = React.CSSProperties & { "--skin-art"?: string };
 
 /**
  * The whole game, client-side. The page decides *whether you are signed in*;
@@ -90,7 +101,7 @@ interface GameShellProps {
  * so the client never has to remember how far along a player is, and the seal
  * band can never disagree with the server about which level is open.
  */
-export function GameShell({ email }: GameShellProps): React.JSX.Element {
+export function GameShell({ email, artwork }: GameShellProps): React.JSX.Element {
   const [progress, setProgress] = useState<ProgressResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -319,6 +330,11 @@ export function GameShell({ email }: GameShellProps): React.JSX.Element {
   const selectedLevel: LevelNumber = selected ?? currentLevel;
   const selectedProgress = progress?.levels.find((entry) => entry.level === selectedLevel);
 
+  // The level's backdrop travels with the level you are looking at, so moving
+  // through the archive changes the air on screen, not just the words.
+  const artworkUrl = artwork[selectedLevel];
+  const skinStyle: SkinStyle = artworkUrl === undefined ? {} : { "--skin-art": `url("${artworkUrl}")` };
+
   /**
    * What the panel area shows. Ordered so the most specific state wins:
    * a reveal outranks the plain completed card, and the end of the run is a
@@ -416,20 +432,21 @@ export function GameShell({ email }: GameShellProps): React.JSX.Element {
 
   return (
     <div className="flex flex-1 flex-col bg-stone-950 text-stone-200">
-      <header className="border-b border-stone-800 bg-stone-900/40">
-        <div className="mx-auto flex w-full max-w-4xl flex-wrap items-center justify-between gap-3 px-6 py-4">
+      <header className="border-b border-stone-800 bg-stone-950/80">
+        <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-6 py-4">
           <div className="flex items-baseline gap-3">
-            <span className="text-lg font-semibold tracking-tight text-stone-100">
+            <span className="font-display text-xl leading-none font-semibold tracking-tight text-stone-100">
               Prompt<span className="text-amber-400">Guard</span>
             </span>
-            <span className="font-mono text-[11px] uppercase tracking-widest text-stone-500">
+            <span aria-hidden="true" className="hidden h-4 w-px self-center bg-stone-700 sm:block" />
+            <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-stone-500">
               the sealed archive
             </span>
           </div>
           <nav className="flex flex-wrap items-center gap-4 text-sm">
             <Link
               href="/dashboard"
-              className="text-stone-400 underline-offset-4 transition-colors hover:text-amber-300 hover:underline"
+              className="font-mono text-[11px] uppercase tracking-[0.2em] text-stone-400 underline-offset-4 transition-colors hover:text-amber-300 hover:underline"
             >
               Ledger
             </Link>
@@ -458,7 +475,6 @@ export function GameShell({ email }: GameShellProps): React.JSX.Element {
         <>
           <SealBand
             levels={levels}
-            currentLevel={currentLevel}
             selected={selectedLevel}
             everyLevelBeaten={everyLevelBeaten}
             onSelect={(level) => {
@@ -467,16 +483,18 @@ export function GameShell({ email }: GameShellProps): React.JSX.Element {
             }}
           />
 
-          <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-6 py-8">
-            {renderLevel()}
-          </main>
+          <div className="level-arena flex flex-1 flex-col" data-level={selectedLevel} style={skinStyle}>
+            <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-6 py-10">
+              {renderLevel()}
+            </main>
+          </div>
 
-          <footer className="border-t border-stone-800">
-            <div className="mx-auto flex w-full max-w-4xl flex-wrap items-center justify-between gap-3 px-6 py-4">
-              <p className="font-mono text-[11px] uppercase tracking-widest text-stone-600">
+          <footer className="border-t border-stone-800 bg-stone-950/80">
+            <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-6 py-4">
+              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-stone-600">
                 six seals · six words
               </p>
-              <p className="text-xs text-stone-600">
+              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-stone-600">
                 Session status:{" "}
                 <span className={session?.status === "WON" ? "text-amber-300" : "text-stone-500"}>
                   {session === null ? (everyLevelBeaten ? "run complete" : "no open seal") : STATUS_LABEL[session.status]}

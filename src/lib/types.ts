@@ -59,6 +59,14 @@ export interface ProgressResponse {
   session: SessionDto | null;
 }
 
+/**
+ * Level number to public URL of that level's backdrop, present only for the
+ * levels that actually have artwork on disk. The mapping is a fact about the
+ * filesystem, so the server resolves it and passes plain URLs across the
+ * boundary; it is declared here because both ends of that boundary use it.
+ */
+export type LevelArtwork = Readonly<Partial<Record<LevelNumber, string>>>;
+
 export interface AttemptResponse {
   attempt: AttemptDto;
   attemptCount: number;

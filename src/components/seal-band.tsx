@@ -2,6 +2,7 @@
 
 import type * as React from "react";
 
+import { identityFor } from "@/lib/seal-identities";
 import type { LevelNumber, LevelProgressDto } from "@/lib/types";
 
 /**
@@ -12,16 +13,20 @@ import type { LevelNumber, LevelProgressDto } from "@/lib/types";
  * Three states, and they must be distinguishable without colour, because a
  * colourblind player in a noisy room is the normal case, not the edge case:
  *
- *   COMPLETED — a filled seal with a tick, and the word it gave up. The word is
- *               shown because the seal is broken; showing it earlier would be
- *               the whole game.
- *   CURRENT   — a live amber seal, labelled "open now". It pulses only when
- *               motion is welcome.
- *   LOCKED    — a hatched, chained seal carrying a lock glyph and the words
- *               "locked · level N-1 first". It reads as shut, never as merely
- *               dimmed, so nobody wonders whether it is clickable. It is a
- *               button anyway: pressing it lands on the locked screen rather
- *               than doing nothing.
+ *   COMPLETED — a filled seal with a tick, labelled with the word it gave up.
+ *               The word is shown because the seal is broken; showing it
+ *               earlier would be the whole game.
+ *   CURRENT   — a live amber seal with a ring, labelled with the level's own
+ *               seal-band label ("open now", "reflection", "maze"…). It pulses
+ *               only when motion is welcome.
+ *   LOCKED    — a hatched, chained seal carrying a padlock and the word
+ *               "locked". It reads as shut, never as merely dimmed, so nobody
+ *               wonders whether it is clickable. It is a button anyway:
+ *               pressing it lands on the locked screen rather than doing
+ *               nothing.
+ *
+ * Every state carries an aria-label naming the level and the state, so the
+ * band is never a colour chart.
  */
 
 const LEVEL_ORDER: readonly LevelNumber[] = [1, 2, 3, 4, 5, 6];
@@ -69,6 +74,16 @@ function Lock(): React.JSX.Element {
   );
 }
 
+/** The open seal's ring: a live marker that is not a dot, so it reads as a seal. */
+function Ring(): React.JSX.Element {
+  return (
+    <span
+      aria-hidden="true"
+      className="block h-3 w-3 rounded-full border-2 border-amber-400 bg-amber-400/10"
+    />
+  );
+}
+
 /** The live seal's heartbeat: only rendered when motion is allowed. */
 function Pulse(): React.JSX.Element {
   return (
@@ -80,7 +95,7 @@ function Pulse(): React.JSX.Element {
 }
 
 const STEP_BASE =
-  "relative z-10 flex h-full min-h-[4.5rem] w-full flex-col justify-between gap-2 rounded-lg border px-2.5 py-2.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-950";
+  "relative z-10 flex h-full min-h-[4.75rem] w-full flex-col justify-between gap-3 rounded-lg border px-2.5 py-2.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-950";
 
 function stepClasses(status: LevelProgressDto["status"], selected: boolean): string {
   const ring = selected ? "ring-2 ring-offset-2 ring-offset-stone-950 " : "";
@@ -100,12 +115,35 @@ function stepClasses(status: LevelProgressDto["status"], selected: boolean): str
   }
 }
 
+/** The one word under a seal: its revealed word, its label, or "locked". */
+function sealLabel(progress: LevelProgressDto): string {
+  switch (progress.status) {
+    case "COMPLETED":
+      return progress.revealedWord ?? "broken";
+    case "CURRENT":
+      return identityFor(progress.level).sealLabel;
+    case "LOCKED":
+      return "locked";
+  }
+}
+
+function footnote(progress: LevelProgressDto): string {
+  switch (progress.status) {
+    case "COMPLETED":
+      return "seal broken";
+    case "CURRENT":
+      return "the open seal";
+    case "LOCKED":
+      return `after level ${progress.level - 1}`;
+  }
+}
+
 function ariaLabel(progress: LevelProgressDto): string {
   switch (progress.status) {
     case "COMPLETED":
       return `Level ${progress.level}, seal broken. Word: ${progress.revealedWord ?? "unknown"}.`;
     case "CURRENT":
-      return `Level ${progress.level}, the open seal.`;
+      return `Level ${progress.level}, the open seal: ${identityFor(progress.level).sealLabel}.`;
     case "LOCKED":
       return `Level ${progress.level}, locked. Break the seal of level ${
         progress.level - 1
@@ -115,7 +153,6 @@ function ariaLabel(progress: LevelProgressDto): string {
 
 interface SealBandProps {
   readonly levels: readonly LevelProgressDto[];
-  readonly currentLevel: LevelNumber;
   readonly selected: LevelNumber;
   readonly everyLevelBeaten: boolean;
   readonly onSelect: (level: LevelNumber) => void;
@@ -123,7 +160,6 @@ interface SealBandProps {
 
 export function SealBand({
   levels,
-  currentLevel,
   selected,
   everyLevelBeaten,
   onSelect,
@@ -135,23 +171,24 @@ export function SealBand({
     levels.find((entry) => entry.level === level),
   ).filter((entry): entry is LevelProgressDto => entry !== undefined);
 
+  const broken = ordered.filter((entry) => entry.status === "COMPLETED").length;
+
   return (
     <nav
       aria-label="Your progression through the six seals"
       className="border-b border-stone-800 bg-stone-950/80"
     >
-      <div className="mx-auto w-full max-w-4xl px-6 py-4">
+      <div className="mx-auto w-full max-w-5xl px-6 py-4">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-stone-500">
             the six seals
           </p>
-          <p className="text-sm text-stone-400">
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-stone-500">
             {everyLevelBeaten ? (
               <span className="text-amber-300">All six seals broken</span>
             ) : (
               <>
-                Level <span className="font-semibold text-stone-100">{currentLevel}</span> of{" "}
-                {ordered.length}
+                {broken} of {ordered.length} seals broken
               </>
             )}
           </p>
@@ -207,10 +244,7 @@ export function SealBand({
                         {entry.status === "COMPLETED" ? (
                           <Tick />
                         ) : entry.status === "CURRENT" ? (
-                          <span
-                            aria-hidden="true"
-                            className="block h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-amber-400/30"
-                          />
+                          <Ring />
                         ) : (
                           <Lock />
                         )}
@@ -221,25 +255,17 @@ export function SealBand({
                       <span
                         className={
                           entry.status === "COMPLETED"
-                            ? "truncate font-mono text-xs font-medium text-amber-200"
+                            ? "truncate font-display text-base leading-5 text-amber-200"
                             : entry.status === "CURRENT"
-                              ? "text-xs font-medium text-stone-100"
-                              : "text-xs font-medium text-stone-500"
+                              ? "truncate font-mono text-[11px] uppercase tracking-[0.15em] text-stone-100"
+                              : "font-mono text-[11px] uppercase tracking-[0.15em] text-stone-500"
                         }
                         title={entry.status === "COMPLETED" ? entry.revealedWord ?? "" : undefined}
                       >
-                        {entry.status === "COMPLETED"
-                          ? entry.revealedWord ?? "broken"
-                          : entry.status === "CURRENT"
-                            ? "open now"
-                            : "locked"}
+                        {sealLabel(entry)}
                       </span>
                       <span className="text-[10px] leading-4 text-stone-500">
-                        {entry.status === "COMPLETED"
-                          ? "seal broken"
-                          : entry.status === "CURRENT"
-                            ? "your move"
-                            : `after level ${entry.level - 1}`}
+                        {footnote(entry)}
                       </span>
                     </span>
                   </button>
