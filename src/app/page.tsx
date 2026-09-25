@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import type * as React from "react";
 
 import { GameShell } from "@/components/chat";
+import { SiteHeader } from "@/components/site-header";
 import { auth } from "@/lib/auth";
 import { readLevelArtwork } from "@/lib/level-artwork";
 
@@ -22,5 +23,14 @@ export default async function Home(): Promise<React.JSX.Element> {
   //
   // Which backdrops exist is a fact about the filesystem, so it is resolved here
   // and passed down as plain URLs.
-  return <GameShell email={session.user?.email ?? ""} artwork={readLevelArtwork()} />;
+  //
+  // The header sits above the game rather than inside it: the shell is a client
+  // component, and the header has to read the session to decide whether to
+  // offer the console at all.
+  return (
+    <>
+      <SiteHeader />
+      <GameShell artwork={readLevelArtwork()} />
+    </>
+  );
 }

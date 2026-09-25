@@ -12,7 +12,6 @@ import {
   SealReveal,
 } from "@/components/level-panels";
 import { SealBand } from "@/components/seal-band";
-import { SignOutButton } from "@/components/sign-out-button";
 import type {
   AttemptResponse,
   LevelArtwork,
@@ -79,7 +78,6 @@ interface Reveal {
 }
 
 interface GameShellProps {
-  readonly email: string;
   /** Level number to public URL for the photographic backdrops that exist. */
   readonly artwork: LevelArtwork;
 }
@@ -101,7 +99,7 @@ type SkinStyle = React.CSSProperties & { "--skin-art"?: string };
  * so the client never has to remember how far along a player is, and the seal
  * band can never disagree with the server about which level is open.
  */
-export function GameShell({ email, artwork }: GameShellProps): React.JSX.Element {
+export function GameShell({ artwork }: GameShellProps): React.JSX.Element {
   const [progress, setProgress] = useState<ProgressResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -432,32 +430,6 @@ export function GameShell({ email, artwork }: GameShellProps): React.JSX.Element
 
   return (
     <div className="flex flex-1 flex-col bg-stone-950 text-stone-200">
-      <header className="border-b border-stone-800 bg-stone-950/80">
-        <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-6 py-4">
-          <div className="flex items-baseline gap-3">
-            <span className="font-display text-xl leading-none font-semibold tracking-tight text-stone-100">
-              Prompt<span className="text-amber-400">Guard</span>
-            </span>
-            <span aria-hidden="true" className="hidden h-4 w-px self-center bg-stone-700 sm:block" />
-            <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-stone-500">
-              the sealed archive
-            </span>
-          </div>
-          <nav className="flex flex-wrap items-center gap-4 text-sm">
-            <Link
-              href="/dashboard"
-              className="font-mono text-[11px] uppercase tracking-[0.2em] text-stone-400 underline-offset-4 transition-colors hover:text-amber-300 hover:underline"
-            >
-              Ledger
-            </Link>
-            {email !== "" ? (
-              <span className="hidden text-stone-500 sm:inline">{email}</span>
-            ) : null}
-            <SignOutButton />
-          </nav>
-        </div>
-      </header>
-
       {loading ? (
         <div className="flex flex-1 items-center justify-center px-6 py-24" aria-live="polite">
           <p className="font-mono text-sm text-stone-500">consulting the archive…</p>
