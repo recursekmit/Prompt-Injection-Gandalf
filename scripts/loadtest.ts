@@ -6,7 +6,7 @@
  *   npx tsx scripts/loadtest.ts
  *   npx tsx scripts/loadtest.ts --url=http://localhost:3000 --concurrency=8 --requests=120
  *
- * It signs up (or logs in) a throwaway user, starts an APPRENTICE session and
+ * It signs up (or logs in) a throwaway user, starts a level 1 session and
  * then fires concurrent attempts at the session route, so the pool's queueing
  * behaviour is visible as a status histogram rather than as a hang.
  *
@@ -218,12 +218,12 @@ async function signIn(
   }
 }
 
-/** Starts (or resumes) the throwaway user's APPRENTICE session. */
+/** Starts (or resumes) the throwaway user's level 1 session. */
 async function startSession(baseUrl: string, jar: CookieJar): Promise<string> {
   const response = await fetch(`${baseUrl}/api/session/start`, {
     method: "POST",
     headers: { "content-type": "application/json", cookie: jar.header() },
-    body: JSON.stringify({ tier: "APPRENTICE" }),
+    body: JSON.stringify({ level: 1 }),
   });
   const body = await readJson(response);
   const sessionId = stringField(
@@ -233,7 +233,7 @@ async function startSession(baseUrl: string, jar: CookieJar): Promise<string> {
     "id",
   );
   if (sessionId === undefined) {
-    throw new Error(`Could not start an APPRENTICE session (HTTP ${response.status}).`);
+    throw new Error(`Could not start a level 1 session (HTTP ${response.status}).`);
   }
   return sessionId;
 }
@@ -383,7 +383,7 @@ async function main(): Promise<void> {
   const email = `loadtest-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}@example.com`;
   const password = "loadtest-password-123";
 
-  console.log(`Signing up a throwaway user and starting an APPRENTICE session on ${options.baseUrl} ...`);
+  console.log(`Signing up a throwaway user and starting a level 1 session on ${options.baseUrl} ...`);
 
   const created = await signup(options.baseUrl, email, password);
   if (created !== 201 && created !== 409) {
