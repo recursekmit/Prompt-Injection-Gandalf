@@ -8,11 +8,26 @@
  * told the word: otherwise it sits in the network tab and the game is over.
  */
 
-export type Tier = "APPRENTICE" | "ADEPT" | "ARCHMAGE";
+// Type-only, and deliberately so: `@/lib/guardian/levels` is a server module
+// that contains the guardian prompt text, and a type-only import is erased at
+// compile time. A client component can therefore import this file without the
+// prompt (or any word) being pulled into its bundle. Never turn this into a
+// value import.
+import type { LevelNumber } from "@/lib/guardian/levels";
+
+export type { LevelNumber };
 
 export type SessionStatus = "IN_PROGRESS" | "WON" | "ABANDONED";
 
-export const TIERS: readonly Tier[] = ["APPRENTICE", "ADEPT", "ARCHMAGE"];
+/** Where a player stands on one level, derived from their won sessions. */
+export type LevelStatus = "LOCKED" | "CURRENT" | "COMPLETED";
+
+export interface LevelProgressDto {
+  level: LevelNumber;
+  status: LevelStatus;
+  /** The word text, present only once the level has been beaten. */
+  revealedWord: string | null;
+}
 
 export interface AttemptDto {
   id: string;
@@ -24,7 +39,7 @@ export interface AttemptDto {
 
 export interface SessionDto {
   id: string;
-  tier: Tier;
+  level: LevelNumber;
   status: SessionStatus;
   attemptCount: number;
   flagged: boolean;
@@ -36,7 +51,11 @@ export interface SessionDto {
   revealedWord: string | null;
 }
 
-export interface CurrentSessionResponse {
+export interface ProgressResponse {
+  levels: LevelProgressDto[];
+  /** The lowest unbeaten level, or MAX_LEVEL when every level is beaten. */
+  currentLevel: LevelNumber;
+  /** The live session, if one is in progress. */
   session: SessionDto | null;
 }
 
@@ -50,7 +69,7 @@ export interface AttemptResponse {
 
 export interface HistoryEntryDto {
   id: string;
-  tier: Tier;
+  level: LevelNumber;
   status: SessionStatus;
   wordText: string | null;
   attemptCount: number;
@@ -61,10 +80,11 @@ export interface HistoryEntryDto {
 
 export interface HistoryResponse {
   entries: HistoryEntryDto[];
-  /** Wins per tier over total sessions per tier. */
-  stats: Record<Tier, { won: number; total: number }>;
+  /** Wins per level over total sessions per level, keyed by level as a string. */
+  statsByLevel: Record<string, { won: number; total: number }>;
 }
 
 export interface ApiErrorResponse {
   error: string;
 }
+
