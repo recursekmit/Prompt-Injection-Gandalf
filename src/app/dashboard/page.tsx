@@ -2,10 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type * as React from "react";
 
-import type { SessionStatus, Tier } from "@/generated/prisma/client";
+import type { SessionStatus } from "@/generated/prisma/client";
 import { auth } from "@/lib/auth";
+import { isLevelNumber } from "@/lib/guardian/levels";
 import { prisma } from "@/lib/prisma";
-import type { HistoryEntryDto } from "@/lib/types";
+import type { HistoryEntryDto, LevelNumber } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,8 @@ export const dynamic = "force-dynamic";
  */
 interface SessionRow {
   readonly id: string;
-  readonly tier: Tier;
+  /** A plain integer in the column, narrowed to a level before it becomes a DTO. */
+  readonly level: number;
   readonly status: SessionStatus;
   readonly createdAt: Date;
   readonly endedAt: Date | null;
@@ -24,13 +26,7 @@ interface SessionRow {
   readonly word: { readonly text: string };
 }
 
-const TIERS: readonly Tier[] = ["APPRENTICE", "ADEPT", "ARCHMAGE"];
-
-const TIER_LABEL: Record<Tier, string> = {
-  APPRENTICE: "Apprentice",
-  ADEPT: "Adept",
-  ARCHMAGE: "Archmage",
-};
+const LEVEL_NUMBERS: readonly LevelNumber[] = [1, 2, 3, 4, 5, 6];
 
 function formatDuration(durationMs: number | null): string {
   if (durationMs === null) {
@@ -67,7 +63,7 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
-      tier: true,
+      level: true,
       status: true,
       createdAt: true,
       endedAt: true,
@@ -78,27 +74,37 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
 
   // Mapped into the shared DTO shape and the word dropped unless the session was
   // actually won, so a word belonging to an unfinished session is never handed
-  // to anything downstream of this component.
-  const entries: HistoryEntryDto[] = rows.map((row) => ({
-    id: row.id,
-    tier: row.tier,
-    status: row.status,
-    wordText: row.status === "WON" ? row.word.text : null,
-    attemptCount: row._count.attempts,
-    startedAt: row.createdAt.toISOString(),
-    endedAt: row.endedAt === null ? null : row.endedAt.toISOString(),
-    durationMs: row.endedAt === null ? null : row.endedAt.getTime() - row.createdAt.getTime(),
-  }));
+  // to anything downstream of this component. A row whose level is outside the
+  // game's range cannot be represented and is skipped rather than coerced.
+  const entries: HistoryEntryDto[] = [];
+  for (const row of rows) {
+    const level = row.level;
+    if (!isLevelNumber(level)) {
+      continue;
+    }
+    entries.push({
+      id: row.id,
+      level,
+      status: row.status,
+      wordText: row.status === "WON" ? row.word.text : null,
+      attemptCount: row._count.attempts,
+      startedAt: row.createdAt.toISOString(),
+      endedAt: row.endedAt === null ? null : row.endedAt.toISOString(),
+      durationMs: row.endedAt === null ? null : row.endedAt.getTime() - row.createdAt.getTime(),
+    });
+  }
 
-  const stats: Record<Tier, { won: number; total: number }> = {
-    APPRENTICE: { won: 0, total: 0 },
-    ADEPT: { won: 0, total: 0 },
-    ARCHMAGE: { won: 0, total: 0 },
-  };
+  const stats = new Map<LevelNumber, { won: number; total: number }>(
+    LEVEL_NUMBERS.map((level) => [level, { won: 0, total: 0 }]),
+  );
   for (const entry of entries) {
-    stats[entry.tier].total += 1;
+    const bucket = stats.get(entry.level);
+    if (bucket === undefined) {
+      continue;
+    }
+    bucket.total += 1;
     if (entry.status === "WON") {
-      stats[entry.tier].won += 1;
+      bucket.won += 1;
     }
   }
 
@@ -124,16 +130,16 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
           Every session you have opened, newest first.
         </p>
 
-        <section aria-label="Wins by tier" className="mt-8 grid gap-4 sm:grid-cols-3">
-          {TIERS.map((tier) => {
-            const { won, total } = stats[tier];
+        <section aria-label="Wins by level" className="mt-8 grid gap-4 sm:grid-cols-3">
+          {LEVEL_NUMBERS.map((level) => {
+            const { won, total } = stats.get(level) ?? { won: 0, total: 0 };
             return (
               <div
-                key={tier}
+                key={level}
                 className="rounded-lg border border-stone-800 bg-stone-900/60 px-5 py-4"
               >
                 <p className="font-mono text-[11px] uppercase tracking-widest text-stone-500">
-                  {TIER_LABEL[tier]}
+                  Level {level}
                 </p>
                 <p className="mt-2 text-2xl font-semibold text-stone-100">
                   {won}
@@ -164,7 +170,7 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
               <table className="w-full min-w-[40rem] border-collapse text-left text-sm">
                 <thead className="bg-stone-900/60">
                   <tr className="font-mono text-[11px] uppercase tracking-widest text-stone-500">
-                    <th scope="col" className="px-5 py-3 font-normal">Tier</th>
+                    <th scope="col" className="px-5 py-3 font-normal">Level</th>
                     <th scope="col" className="px-5 py-3 font-normal">Status</th>
                     <th scope="col" className="px-5 py-3 font-normal">Attempts</th>
                     <th scope="col" className="px-5 py-3 font-normal">Duration</th>
@@ -174,7 +180,7 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
                 <tbody>
                   {entries.map((entry) => (
                     <tr key={entry.id} className="border-t border-stone-800/80">
-                      <td className="px-5 py-3 text-stone-200">{TIER_LABEL[entry.tier]}</td>
+                      <td className="px-5 py-3 text-stone-200">Level {entry.level}</td>
                       <td className="px-5 py-3">
                         <span
                           className={

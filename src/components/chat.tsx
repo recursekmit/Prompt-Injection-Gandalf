@@ -5,20 +5,47 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type * as React from "react";
 
 import { SignOutButton } from "@/components/sign-out-button";
-import { TierPicker, readApiError } from "@/components/tier-picker";
 import type {
   AttemptDto,
   AttemptResponse,
-  CurrentSessionResponse,
+  ProgressResponse,
   SessionDto,
-  Tier,
 } from "@/lib/types";
 
-const TIER_LABEL: Record<Tier, string> = {
-  APPRENTICE: "Apprentice",
-  ADEPT: "Adept",
-  ARCHMAGE: "Archmage",
-};
+/**
+ * Turns a failed response into one line of prose a player can read. The route
+ * handlers send `{ error: string }`, but a proxy or an unexpected crash may send
+ * an HTML body instead, so the status code keeps a fallback of its own rather
+ * than letting `res.json()` throw a parse error at the player.
+ */
+async function readApiError(res: Response): Promise<string> {
+  const byStatus: Record<number, string> = {
+    400: "That request was rejected. Check what you sent and try again.",
+    401: "Your session has expired. Sign in again to continue.",
+    409: "That is not possible right now — this session may already be finished.",
+    429: "Too many attempts too quickly. Wait a moment before trying again.",
+    503: "The guardian is overwhelmed — wait a moment, then try again.",
+  };
+
+  let message: string | null = null;
+  try {
+    const body: unknown = await res.json();
+    if (typeof body === "object" && body !== null && "error" in body) {
+      const { error } = body as { error: unknown };
+      if (typeof error === "string" && error.trim() !== "") {
+        message = error;
+      }
+    }
+  } catch {
+    message = null;
+  }
+
+  return (
+    message ??
+    byStatus[res.status] ??
+    `The request failed (HTTP ${res.status}). Try again.`
+  );
+}
 
 const STATUS_LABEL: Record<SessionDto["status"], string> = {
   IN_PROGRESS: "in progress",
@@ -34,16 +61,34 @@ interface GameShellProps {
  * The whole game, client-side. The page decides *whether you are signed in*;
  * this decides *what you see*, because the current session is owned by the API
  * and a reload has to rebuild it from `SessionDto.attempts` alone.
+ *
+ * Progress comes from the same response: the API derives it from beaten levels,
+ * so the client never has to remember how far along a player is.
  */
 export function GameShell({ email }: GameShellProps): React.JSX.Element {
-  const [session, setSession] = useState<SessionDto | null>(null);
+  const [progress, setProgress] = useState<ProgressResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  const session = progress?.session ?? null;
+  const currentLevel = progress?.currentLevel ?? null;
+  const everyLevelBeaten =
+    progress !== null && progress.levels.every((level) => level.status === "COMPLETED");
+
+  const refreshProgress = useCallback(async (): Promise<void> => {
+    const res = await fetch("/api/session/current");
+    if (!res.ok) {
+      setLoadError(await readApiError(res));
+      return;
+    }
+    setProgress((await res.json()) as ProgressResponse);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -55,8 +100,8 @@ export function GameShell({ email }: GameShellProps): React.JSX.Element {
           setLoadError(await readApiError(res));
           return;
         }
-        const data = (await res.json()) as CurrentSessionResponse;
-        setSession(data.session);
+        const data = (await res.json()) as ProgressResponse;
+        setProgress(data);
       } catch {
         if (controller.signal.aborted) {
           return;
@@ -82,6 +127,37 @@ export function GameShell({ email }: GameShellProps): React.JSX.Element {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [attemptTotal, sending]);
 
+  const startLevel = useCallback(async (): Promise<void> => {
+    if (currentLevel === null || starting) {
+      return;
+    }
+
+    setStarting(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/session/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ level: currentLevel }),
+      });
+
+      if (!res.ok) {
+        setError(await readApiError(res));
+        return;
+      }
+
+      const data = (await res.json()) as { session: SessionDto };
+      setProgress((prev) =>
+        prev === null ? prev : { ...prev, session: data.session },
+      );
+    } catch {
+      setError("Could not reach the archive. Check your connection and try again.");
+    } finally {
+      setStarting(false);
+    }
+  }, [currentLevel, starting]);
+
   const send = useCallback(async (): Promise<void> => {
     const message = draft.trim();
     if (message === "" || session === null || sending || session.status !== "IN_PROGRESS") {
@@ -104,22 +180,24 @@ export function GameShell({ email }: GameShellProps): React.JSX.Element {
       }
 
       const data = (await res.json()) as AttemptResponse;
-      setSession((prev) => {
-        if (prev === null) {
-          return prev;
-        }
-        return {
-          ...prev,
-          attempts: [...prev.attempts, data.attempt],
-          attemptCount: data.attemptCount,
-          status: data.status,
-          revealedWord: data.revealedWord ?? prev.revealedWord,
-          endedAt:
-            data.status === "IN_PROGRESS"
-              ? prev.endedAt
-              : (prev.endedAt ?? new Date().toISOString()),
-        };
-      });
+      setProgress((prev) =>
+        prev === null
+          ? prev
+          : {
+              ...prev,
+              session: {
+                ...session,
+                attempts: [...session.attempts, data.attempt],
+                attemptCount: data.attemptCount,
+                status: data.status,
+                revealedWord: data.revealedWord ?? session.revealedWord,
+                endedAt:
+                  data.status === "IN_PROGRESS"
+                    ? session.endedAt
+                    : (session.endedAt ?? new Date().toISOString()),
+              },
+            },
+      );
       setDraft("");
     } catch {
       setError("Could not reach the archive. Your message was not sent.");
@@ -148,7 +226,7 @@ export function GameShell({ email }: GameShellProps): React.JSX.Element {
         setError(await readApiError(res));
         return;
       }
-      setSession(null);
+      setProgress((prev) => (prev === null ? prev : { ...prev, session: null }));
       setDraft("");
     } catch {
       setError("Could not reach the archive. Your session was not surrendered.");
@@ -205,12 +283,49 @@ export function GameShell({ email }: GameShellProps): React.JSX.Element {
           </p>
         </div>
       ) : session === null ? (
-        <TierPicker onStarted={setSession} />
+        <section className="mx-auto w-full max-w-3xl px-6 py-16">
+          <h1 className="text-3xl font-semibold tracking-tight text-stone-100 sm:text-4xl">
+            {everyLevelBeaten ? "Every seal is broken" : `Level ${currentLevel ?? 1}`}
+          </h1>
+          <p className="mt-3 max-w-xl text-sm leading-6 text-stone-400">
+            {everyLevelBeaten
+              ? "You have talked your way past every guardian in the archive. There is nothing left to open."
+              : "Each guardian holds the same kind of secret, sealed behind one word. Talk it out of the word. There is no penalty for trying, only for giving up."}
+          </p>
+
+          {error !== null ? (
+            <p
+              role="alert"
+              className="mt-8 rounded-md border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm leading-6 text-red-200"
+            >
+              {error}
+            </p>
+          ) : null}
+
+          {everyLevelBeaten ? null : (
+            <button
+              type="button"
+              onClick={() => void startLevel()}
+              disabled={starting || currentLevel === null}
+              aria-busy={starting}
+              className="mt-10 w-full rounded-lg border border-stone-800 bg-stone-900/60 px-6 py-5 text-left transition-colors hover:border-amber-500/70 hover:bg-stone-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-stone-800"
+            >
+              <span className="flex flex-wrap items-baseline justify-between gap-2">
+                <span className="text-lg font-medium text-stone-100">
+                  {starting ? "opening…" : `Face the level ${currentLevel ?? 1} guardian`}
+                </span>
+                <span className="font-mono text-xs uppercase tracking-widest text-stone-500">
+                  level {currentLevel ?? 1}
+                </span>
+              </span>
+            </button>
+          )}
+        </section>
       ) : (
         <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-6">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-stone-800 py-5 text-sm">
             <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 font-mono text-xs uppercase tracking-widest text-amber-300">
-              {TIER_LABEL[session.tier]}
+              Level {session.level}
             </span>
             <span className="text-stone-400">
               <span className="font-mono text-stone-200">{session.attemptCount}</span>{" "}
@@ -354,9 +469,20 @@ export function GameShell({ email }: GameShellProps): React.JSX.Element {
                 </div>
               </>
             ) : (
-              <p className="text-sm text-stone-500">
-                This session is closed. Sign out and back in, or reload, to face a new guardian.
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <p className="text-sm text-stone-500">
+                  {session.status === "WON"
+                    ? "The seal is broken. The archive has more doors."
+                    : "This session is closed. The level is still unbeaten."}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void refreshProgress()}
+                  className="rounded-md border border-stone-700 px-4 py-2 text-xs uppercase tracking-widest text-stone-300 transition-colors hover:border-amber-500/70 hover:text-amber-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                >
+                  Continue
+                </button>
+              </div>
             )}
           </div>
         </main>
