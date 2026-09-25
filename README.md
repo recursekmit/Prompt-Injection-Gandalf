@@ -97,6 +97,23 @@ Open http://localhost:3000, sign up, pick a tier, and start talking.
   `typescript-eslint` whose peer range excludes the `typescript@7.0.2` this project pins, so the
   script cannot run. Verification is carried by `npm test` and `npm run build`.
 
+### Load-testing the pool
+
+```bash
+npm run loadtest -- --requests 120 --concurrency 8
+```
+
+Fires a burst at a running dev server and reports the status histogram, the friendly-503 count,
+median and p95 latency, and throughput, ending with a one-line verdict on whether the pool queued.
+It signs up a throwaway user and spends real Groq quota, so it is not part of `npm test`. At four
+keys the whole pool is 120 requests/minute, which a burst of 120 will just about reach — that is
+what makes the queueing path easy to observe now, and hard to observe once the key count grows.
+
+Measured on 2026-09-25 against four keys, 24 requests at concurrency 8: 12 served, 12 refused with
+the friendly 503, median latency 14.4s, p95 24.0s. Every refusal was the queue expiring at its
+12-second cap, not a dropped connection or a raw Groq error. Nothing 429'd, because a failed call
+writes no Attempt row and so does not count toward the per-session throttle.
+
 ### Schema changes
 
 Always through migrations, never `prisma db push`:
