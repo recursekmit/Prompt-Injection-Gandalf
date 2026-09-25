@@ -182,9 +182,14 @@ export function normaliseMessage(message: string): string {
  * exists to prevent. The raw text stays in the database either way.
  *
  * The read is bounded rather than unbounded: a duplicate 409 is free and
- * deliberately unthrottled, so the number of rows a single request can pull must
- * be finite. A session past this many attempts is one the five-minute window has
- * already flagged as automated.
+ * deliberately unthrottled, so the number of rows one request can pull must be
+ * finite. The bound is real but not airtight, and it is worth being exact about
+ * which: only the newest rows are compared, so a message whose only earlier
+ * occurrence is older than that many attempts will not be recognised as a
+ * repeat. Reaching that state takes 500 attempts in one level's session, which
+ * the per-minute rate limit makes implausible rather than impossible — `flagged`
+ * records the automation heuristic but nothing acts on it, so it is not part of
+ * this bound. A normalised column with an index is the fix if it ever matters.
  */
 const MAX_DUPLICATE_SCAN = 500;
 
