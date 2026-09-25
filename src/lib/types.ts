@@ -134,6 +134,30 @@ export interface LeaderboardLevelSummary {
   attempted: number;
 }
 
+/**
+ * One account as the console lists it. Carries no hash, no session and no
+ * attempt text: this is the shape that reaches the browser, and a password hash
+ * must never be one field away from it.
+ */
+export interface AdminUserRow {
+  id: string;
+  email: string;
+  createdAt: string;
+  /** Distinct levels won, 0 to 6. */
+  levelsCompleted: number;
+  /** The level they are on now, one past the levels won, clamped to 6. */
+  currentLevel: number;
+  totalAttempts: number;
+  /** Their most recent attempt, or null if they have never made one. */
+  lastActivityAt: string | null;
+}
+
+export interface AdminUsersResponse {
+  users: AdminUserRow[];
+  /** Pass back as `cursor` for the next page, or null at the end. */
+  nextCursor: string | null;
+}
+
 export interface LeaderboardResponse {
   rows: LeaderboardRow[];
   summary: LeaderboardLevelSummary[];
