@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Tier {
+  APPRENTICE
+  ADEPT
+  ARCHMAGE
+}
+
+enum SessionStatus {
+  IN_PROGRESS
+  WON
+  ABANDONED
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  passwordHash String
+  createdAt    DateTime      @default(now())
+  sessions     GameSession[]
+}
+
+/// The shared pool of secret words. A word is never shorter than four letters:
+/// the leak scanner's separator-squeeze layer relies on that floor to avoid
+/// matching short words inside ordinary prose.
+model Word {
+  id       String        @id @default(cuid())
+  text     String        @unique
+  tier     Tier
+  active   Boolean       @default(true)
+  sessions GameSession[]
+}
+
+model GameSession {
+  id        String        @id @default(cuid())
+  userId    String
+  wordId    String
+  tier      Tier
+  /// Passes through this tier. Increments when every word in the tier has been
+  /// assigned to this user at the current cycle, which is how the pool recycles
+  /// instead of dead-ending.
+  cycle     Int           @default(0)
+  status    SessionStatus @default(IN_PROGRESS)
+  /// Set when a session exceeds 20 attempts in 5 minutes, i.e. looks automated.
+  flagged   Boolean       @default(false)
+  createdAt DateTime      @default(now())
+  endedAt   DateTime?
+  user      User          @relation(fields: [userId], references: [id])
+  word      Word          @relation(fields: [wordId], references: [id])
+  attempts  Attempt[]
+
+  @@index([userId, tier, cycle])
+  @@index([userId, status])
+}
+
+model Attempt {
+  id          String      @id @default(cuid())
+  sessionId   String
+  /// The player's raw message. Sanitisation happens when the prompt history is
+  /// rebuilt, so the original attack text stays available for review.
+  userMessage String
+  aiResponse  String
+  leaked      Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  session     GameSession @relation(fields: [sessionId], references: [id])
+
+  @@index([sessionId, createdAt])
+}
+
+/// One row per Groq key per UTC day. Incremented atomically.
+model ApiKeyDailyUsage {
+  keyIndex Int
+  date     DateTime @db.Date
+  count    Int      @default(0)
+
+  @@unique([keyIndex, date])
+}
+
+/// One row per Groq request, so the per-minute window can be counted as a
+/// sliding 60-second window rather than a fixed bucket that can be burst at the
+/// boundary. Pruned opportunistically; see lib/groq-key-pool.ts.
+model ApiKeyRequestLog {
+  id        String   @id @default(cuid())
+  keyIndex  Int
+  createdAt DateTime @default(now())
+
+  @@index([keyIndex, createdAt])
+}
+
+/// A key Groq itself reported as rate-limited. Kept in the database so a server
+/// restart does not lose it, since Groq's clock is the authority, not ours.
+model ApiKeyCooldown {
+  keyIndex       Int      @id
+  exhaustedUntil DateTime
+}
