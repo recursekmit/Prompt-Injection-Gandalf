@@ -1,62 +1,62 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import "dotenv/config";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { Tier } from "../src/generated/prisma/enums";
 
 /**
- * The shared word pool. Rules for entries, all of which matter to the leak
- * scanner or to gameplay:
+ * The six level words, in level order. Each level guards exactly one fixed
+ * word, so this table is the whole active pool now.
+ *
+ * Rules for the entries, all of which matter to the leak scanner or to gameplay:
  *   - lowercase, single words, ASCII letters only
  *   - never shorter than four letters, so the separator-squeeze scan layer
  *     cannot fire on ordinary prose
  *   - no proper nouns, no brand names
  *   - nothing that is a substring of a very common word, to keep false wins rare
  */
-const WORDS: Record<Tier, string[]> = {
-  [Tier.APPRENTICE]: [
-    "anchor", "basket", "beacon", "breeze", "cactus", "candle", "carpet", "castle",
-    "celery", "cherry", "cobalt", "comedy", "compass", "copper", "cricket", "dagger",
-    "dolphin", "ember", "fabric", "falcon", "feather", "ginger", "glacier", "goblin",
-    "hammer", "harbor", "helmet", "hollow", "ivory", "jacket", "kettle", "lantern",
-    "lizard", "marble", "meadow", "mitten", "nectar", "nutmeg", "olive", "otter",
-  ],
-  [Tier.ADEPT]: [
-    "abacus", "amulet", "anvil", "apron", "arbour", "basalt", "bezel", "bramble",
-    "cadence", "caliper", "cauldron", "chisel", "cinder", "clarity", "cobble", "crucible",
-    "damask", "decanter", "dovetail", "dulcet", "elixir", "errant", "fathom", "ferrous",
-    "flagon", "gambit", "gantry", "gossamer", "harvest", "hearth", "inlaid", "juniper",
-    "kestrel", "kindling", "lattice", "lichen", "lodestone", "mandolin", "mirth", "myrtle",
-  ],
-  [Tier.ARCHMAGE]: [
-    "abecedarian", "adjuration", "alembic", "anathema", "apocrypha", "arcanum", "augury",
-    "bedevil", "calumny", "catacomb", "chimerical", "cognoscenti", "conundrum", "cupidity",
-    "defenestration", "desultory", "diaphanous", "dissemble", "effulgent", "eldritch",
-    "ephemeral", "evanescent", "farrago", "fulminate", "gallimaufry", "hierophant",
-    "ineffable", "labyrinthine", "liminal", "mellifluous", "munificent", "obfuscate",
-    "palimpsest", "penumbra", "perspicacious", "quiescent", "recalcitrant", "sagacious",
-    "susurrus", "vellichor",
-  ],
-};
+const LEVEL_WORDS: ReadonlyArray<{ level: number; text: string }> = [
+  { level: 1, text: "compass" },
+  { level: 2, text: "lantern" },
+  { level: 3, text: "crucible" },
+  { level: 4, text: "penumbra" },
+  { level: 5, text: "palimpsest" },
+  { level: 6, text: "defenestration" },
+];
 
 function assertPoolRules(): void {
-  const all = Object.values(WORDS).flat();
   const seen = new Set<string>();
-  for (const word of all) {
-    if (!/^[a-z]+$/.test(word)) {
-      throw new Error(`Word "${word}" must be lowercase ASCII letters only`);
+  for (const { text } of LEVEL_WORDS) {
+    if (!/^[a-z]+$/.test(text)) {
+      throw new Error(`Word "${text}" must be lowercase ASCII letters only`);
     }
-    if (word.length < 4) {
-      throw new Error(`Word "${word}" is shorter than four letters`);
+    if (text.length < 4) {
+      throw new Error(`Word "${text}" is shorter than four letters`);
     }
-    if (seen.has(word)) {
-      throw new Error(`Word "${word}" is duplicated in the pool`);
+    if (seen.has(text)) {
+      throw new Error(`Word "${text}" is duplicated in the pool`);
     }
-    seen.add(word);
+    seen.add(text);
+  }
+}
+
+/** A silent level gap would make that level unreachable, so it fails the seed. */
+function assertLevelsAreContiguous(): void {
+  const levels = LEVEL_WORDS.map((word) => word.level).sort((a, b) => a - b);
+  const expected = LEVEL_WORDS.map((_word, index) => index + 1);
+  if (levels.length !== expected.length) {
+    throw new Error(`Expected ${expected.length} level words, found ${levels.length}`);
+  }
+  for (let index = 0; index < expected.length; index += 1) {
+    if (levels[index] !== expected[index]) {
+      throw new Error(
+        `Levels must be exactly ${expected.join(",")} with no gaps or duplicates, got ${levels.join(",")}`,
+      );
+    }
   }
 }
 
 async function main(): Promise<void> {
   assertPoolRules();
+  assertLevelsAreContiguous();
 
   const connectionString = process.env.DATABASE_URL;
   if (connectionString === undefined || connectionString === "") {
@@ -68,20 +68,18 @@ async function main(): Promise<void> {
   });
 
   try {
-    let created = 0;
-    for (const [tier, words] of Object.entries(WORDS)) {
-      for (const text of words) {
-        const existing = await prisma.word.findUnique({ where: { text } });
-        if (existing !== null) {
-          // Do not resurrect a word that was deliberately deactivated.
-          continue;
-        }
-        await prisma.word.create({ data: { text, tier: tier as Tier } });
-        created += 1;
-      }
+    for (const { level, text } of LEVEL_WORDS) {
+      // Upsert by text, so re-running is a no-op and a level word that already
+      // exists as a retired pool word is promoted rather than duplicated. The
+      // other 114 pool words are deliberately never touched: a word that was
+      // retired stays retired, and this seed must not resurrect it.
+      await prisma.word.upsert({
+        where: { text },
+        create: { text, level, active: true },
+        update: { level, active: true },
+      });
     }
-    const total = await prisma.word.count({ where: { active: true } });
-    console.log(`seed: created ${created}, pool now holds ${total} active words`);
+    console.log("seed: six level words ready");
   } finally {
     await prisma.$disconnect();
   }

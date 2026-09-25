@@ -7,12 +7,6 @@ datasource db {
   provider = "postgresql"
 }
 
-enum Tier {
-  APPRENTICE
-  ADEPT
-  ARCHMAGE
-}
-
 enum SessionStatus {
   IN_PROGRESS
   WON
@@ -27,13 +21,17 @@ model User {
   sessions     GameSession[]
 }
 
-/// The shared pool of secret words. A word is never shorter than four letters:
-/// the leak scanner's separator-squeeze layer relies on that floor to avoid
-/// matching short words inside ordinary prose.
+/// The six level words, each pinned to the level that guards it, plus the words
+/// retired from the old three-tier pool. A retired word keeps its row — so an
+/// old session could still resolve it — but carries `active = false` and no
+/// level. A word is never shorter than four letters: the leak scanner's
+/// separator-squeeze layer relies on that floor to avoid matching short words
+/// inside ordinary prose.
 model Word {
   id       String        @id @default(cuid())
   text     String        @unique
-  tier     Tier
+  /// The level this word guards. Null for a retired pool word.
+  level    Int?          @unique
   active   Boolean       @default(true)
   sessions GameSession[]
 }
@@ -42,11 +40,7 @@ model GameSession {
   id        String        @id @default(cuid())
   userId    String
   wordId    String
-  tier      Tier
-  /// Passes through this tier. Increments when every word in the tier has been
-  /// assigned to this user at the current cycle, which is how the pool recycles
-  /// instead of dead-ending.
-  cycle     Int           @default(0)
+  level     Int
   status    SessionStatus @default(IN_PROGRESS)
   /// Set when a session exceeds 20 attempts in 5 minutes, i.e. looks automated.
   flagged   Boolean       @default(false)
@@ -56,7 +50,7 @@ model GameSession {
   word      Word          @relation(fields: [wordId], references: [id])
   attempts  Attempt[]
 
-  @@index([userId, tier, cycle])
+  @@index([userId, level])
   @@index([userId, status])
 }
 
