@@ -36,8 +36,8 @@ const FAQS: readonly Faq[] = [
     a: "No. Your Groq key is encrypted at rest with a server-side key and is only ever decrypted in memory to call the model on your behalf. It is never written to logs, never returned to the browser, and never shown on any screen — not even yours.",
   },
   {
-    q: "Is this cheating-proof? The code is public.",
-    a: "Yes. The guardians' personas, their rules, and the flags live only in a server-side secret — never in the source you can read. Cloning the repo tells you how the game is built, not what any seal is hiding.",
+    q: "Can I just find the answers somewhere?",
+    a: "No. The guardians' personas, their rules, and the flags live only in a server-side secret. Nothing on your screen or anywhere in the app reveals what a seal is hiding — the only way in is to talk it out.",
   },
   {
     q: "What do I need to play?",
