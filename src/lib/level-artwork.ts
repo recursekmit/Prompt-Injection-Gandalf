@@ -8,16 +8,16 @@ import type { LevelArtwork, LevelNumber } from "@/lib/types";
  *
  * The owner's design uses photographic backdrops that are not in the
  * repository, so a level's art is a slot rather than a fact: drop a JPEG at
- * `public/levels/<n>.jpg` (n = 1–6, matching the level number) and it is picked
+ * `public/levels/<n>.jpg` (n = 1–3, matching the level number) and it is picked
  * up on the next request. Nothing else has to change — the CSS treatment in
- * `globals.css` is the fallback for any level without a file, and for all six
+ * `globals.css` is the fallback for any level without a file, and for all three
  * when the directory does not exist at all.
  *
  * This is a server module: it touches the filesystem, so it must not be imported
  * by a client component. The page reads it and passes plain URLs down.
  */
 
-const LEVEL_NUMBERS: readonly LevelNumber[] = [1, 2, 3, 4, 5, 6];
+const LEVEL_NUMBERS: readonly LevelNumber[] = [1, 2, 3];
 
 export function readLevelArtwork(): LevelArtwork {
   const artwork: Partial<Record<LevelNumber, string>> = {};

@@ -48,7 +48,7 @@ export function GroqKeyForm({ hasKey }: { hasKey: boolean }): React.JSX.Element 
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
-      <label className="flex flex-col gap-1.5 text-sm text-stone-300">
+      <label className="flex flex-col gap-1.5 text-sm text-[#9aa0a6]">
         {hasKey ? "Replace your Groq API key" : "Your Groq API key"}
         <input
           type="password"
@@ -58,15 +58,15 @@ export function GroqKeyForm({ hasKey }: { hasKey: boolean }): React.JSX.Element 
           placeholder="gsk_…"
           value={apiKey}
           onChange={(event) => setApiKey(event.target.value)}
-          className="rounded-lg border border-stone-700 bg-stone-950 px-3 py-2 text-stone-100 outline-none focus:border-amber-500"
+          className="rounded-lg border border-[#22272e] bg-[#0d0f12] px-3 py-2 text-[#d0d7de] outline-none focus:border-[#9efe00]"
         />
       </label>
-      {error !== null && <p role="alert" className="text-sm text-red-400">{error}</p>}
+      {error !== null && <p role="alert" className="text-sm text-[#9aa0a6]">{error}</p>}
       <div className="flex gap-3">
         <button
           type="submit"
           disabled={busy}
-          className="rounded-lg bg-amber-500 px-4 py-2 font-medium text-stone-950 hover:bg-amber-400 disabled:opacity-60"
+          className="btn-recurse-primary text-sm disabled:opacity-60"
         >
           {busy ? "Saving…" : "Save key"}
         </button>
@@ -75,7 +75,7 @@ export function GroqKeyForm({ hasKey }: { hasKey: boolean }): React.JSX.Element 
             type="button"
             onClick={remove}
             disabled={busy}
-            className="rounded-lg border border-stone-700 px-4 py-2 text-stone-300 hover:border-stone-500 disabled:opacity-60"
+            className="rounded-lg border border-[#22272e] px-4 py-2 text-[#9aa0a6] transition-colors hover:border-[#9efe00] hover:text-[#9efe00] disabled:opacity-60"
           >
             Remove
           </button>

@@ -166,9 +166,6 @@ describe("rankPlayers", () => {
       { level: 1, won: true, attempts: 2 },
       { level: 2, won: false, attempts: 0 },
       { level: 3, won: false, attempts: 6 },
-      { level: 4, won: false, attempts: 0 },
-      { level: 5, won: false, attempts: 0 },
-      { level: 6, won: false, attempts: 0 },
     ]);
   });
 
@@ -196,6 +193,6 @@ describe("summariseLevels", () => {
     expect(summary[0]).toEqual({ level: 1, won: 1, attempted: 2 });
     expect(summary[1]).toEqual({ level: 2, won: 0, attempted: 1 });
     expect(summary[2]).toEqual({ level: 3, won: 0, attempted: 0 });
-    expect(summary).toHaveLength(6);
+    expect(summary).toHaveLength(3);
   });
 });

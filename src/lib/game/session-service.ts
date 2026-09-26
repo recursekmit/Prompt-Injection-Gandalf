@@ -1,10 +1,12 @@
 import { LEVELS, MAX_LEVEL, isLevelNumber, type LevelNumber } from "@/lib/guardian/levels";
+import { getOrCreateFlag } from "@/lib/game/flags";
+import { containsFlag } from "@/lib/leak-detection";
 import { sanitizeUserMessage } from "@/lib/guardian/sanitize";
 import { prisma } from "@/lib/prisma";
 import type { LevelProgressDto, LevelStatus, ProgressResponse, SessionDto } from "@/lib/types";
 
 /**
- * Word assignment and session lifecycle.
+ * Flag assignment and session lifecycle.
  *
  * Two invariants this module exists to hold:
  *   1. A player has at most one IN_PROGRESS session. A partial unique index in
@@ -15,10 +17,11 @@ import type { LevelProgressDto, LevelStatus, ProgressResponse, SessionDto } from
  *      free and cannot drift from the history it is computed from.
  */
 
-/** Thrown when a level has no active word — a seed problem, not a player problem. */
+/** Thrown when a level cannot be assigned a flag — an infrastructure problem,
+ * not a player problem. Kept for the start route's error path. */
 export class NoWordsAvailableError extends Error {
   constructor(level: LevelNumber) {
-    super(`No active words available at level ${level}`);
+    super(`No flag could be assigned at level ${level}`);
     this.name = "NoWordsAvailableError";
   }
 }
@@ -31,7 +34,10 @@ interface SessionRow {
   flagged: boolean;
   createdAt: Date;
   endedAt: Date | null;
-  word: { text: string };
+  /** The per-user flag this session guards; null only for legacy word-era rows. */
+  flag: { value: string } | null;
+  /** Legacy fallback for historic sessions created before per-user flags. */
+  word: { text: string } | null;
   attempts: ReadonlyArray<{
     id: string;
     userMessage: string;
@@ -39,6 +45,14 @@ interface SessionRow {
     leaked: boolean;
     createdAt: Date;
   }>;
+}
+
+/** The secret this session guards: the per-user flag, or a legacy word. */
+function secretValueOf(session: {
+  flag: { value: string } | null;
+  word: { text: string } | null;
+}): string | null {
+  return session.flag?.value ?? session.word?.text ?? null;
 }
 
 /**
@@ -55,7 +69,7 @@ function requireLevel(level: number): LevelNumber {
 }
 
 /**
- * The only place a session becomes a DTO. The word's text is included ONLY when
+ * The only place a session becomes a DTO. The flag's value is included ONLY when
  * the session has been won: while it is in progress, sending it would put the
  * answer in the browser's network tab and end the game.
  */
@@ -75,11 +89,12 @@ export function toSessionDto(session: SessionRow): SessionDto {
       leaked: attempt.leaked,
       createdAt: attempt.createdAt.toISOString(),
     })),
-    revealedWord: session.status === "WON" ? session.word.text : null,
+    revealedWord: session.status === "WON" ? secretValueOf(session) : null,
   };
 }
 
 const SESSION_INCLUDE = {
+  flag: { select: { value: true } },
   word: { select: { text: true } },
   attempts: { orderBy: { createdAt: "asc" } },
 } as const;
@@ -143,15 +158,16 @@ export function deriveProgress(
 export async function getProgress(userId: string): Promise<ProgressResponse> {
   const wonSessions = await prisma.gameSession.findMany({
     where: { userId, status: "WON" },
-    select: { level: true, word: { select: { text: true } } },
+    select: { level: true, flag: { select: { value: true } }, word: { select: { text: true } } },
   });
 
   const wonByLevel = new Map<LevelNumber, string>();
   for (const row of wonSessions) {
     // The column is a plain integer; only levels the game has are representable
     // in a DTO, and anything else is not progress.
-    if (isLevelNumber(row.level)) {
-      wonByLevel.set(row.level, row.word.text);
+    const secret = secretValueOf(row);
+    if (isLevelNumber(row.level) && secret !== null) {
+      wonByLevel.set(row.level, secret);
     }
   }
 
@@ -228,18 +244,12 @@ export async function startOrResumeSession(
     return existing;
   }
 
-  // One word guards one level, so this is a single row rather than a pool.
-  const word = await prisma.word.findFirst({
-    where: { level, active: true },
-    select: { id: true, text: true },
-  });
-  if (word === null) {
-    throw new NoWordsAvailableError(level);
-  }
+  // The player's stable per-level flag; created on first play, reused after.
+  const flag = await getOrCreateFlag(userId, level);
 
   try {
     const created = await prisma.gameSession.create({
-      data: { userId, wordId: word.id, level },
+      data: { userId, flagId: flag.id, level },
       include: SESSION_INCLUDE,
     });
     return toSessionDto(created);
@@ -276,6 +286,56 @@ export async function surrenderSession(userId: string, sessionId: string): Promi
     include: SESSION_INCLUDE,
   });
   return toSessionDto(updated);
+}
+
+/**
+ * A level is won only here: the player submits the flag they extracted, and an
+ * exact (whitespace- and case-insensitive) match against the session's real
+ * flag wins. The guardian echoing the flag in chat never wins on its own — with
+ * decoys in play, a reply full of `BTB{...}` strings is noise, so the player has
+ * to decide which one is real and claim it.
+ *
+ * No brute-force guard is needed: the flag is `BTB{` + a v4 UUID, so guessing it
+ * without extracting it is not a threat worth code.
+ *
+ * Returns `null` when there is no live session to submit to (unknown, not the
+ * caller's, or already finished) — the route maps that to a 409, as surrender
+ * does. Otherwise the discriminated result says whether the guess was right.
+ */
+export type SubmitFlagResult =
+  | { correct: true; session: SessionDto }
+  | { correct: false };
+
+export async function submitFlag(
+  userId: string,
+  sessionId: string,
+  guess: string,
+): Promise<SubmitFlagResult | null> {
+  const session = await prisma.gameSession.findFirst({
+    where: { id: sessionId, userId },
+    include: SESSION_INCLUDE,
+  });
+  if (session === null || session.status !== "IN_PROGRESS") {
+    return null;
+  }
+
+  const flagValue = secretValueOf(session);
+  // A live session with no flag is corrupt data, not a losing guess: refuse it
+  // rather than telling the player their (possibly correct) guess was wrong.
+  if (flagValue === null) {
+    return null;
+  }
+
+  if (!containsFlag(guess, flagValue).leaked) {
+    return { correct: false };
+  }
+
+  const updated = await prisma.gameSession.update({
+    where: { id: sessionId },
+    data: { status: "WON", endedAt: new Date() },
+    include: SESSION_INCLUDE,
+  });
+  return { correct: true, session: toSessionDto(updated) };
 }
 
 export const LIMITS = {

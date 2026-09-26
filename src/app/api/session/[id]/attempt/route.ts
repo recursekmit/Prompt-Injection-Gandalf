@@ -13,7 +13,7 @@ import {
 } from "@/lib/guardian/call";
 import { buildSystemPrompt, isLevelNumber, levelFor } from "@/lib/guardian/levels";
 import { buildMessages, sanitizeUserMessage } from "@/lib/guardian/sanitize";
-import { containsSecret } from "@/lib/leak-detection";
+import { containsFlag } from "@/lib/leak-detection";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
 
@@ -42,8 +42,10 @@ const HISTORY_ATTEMPTS = 20;
  *   5. sanitise the message and rebuild the system prompt FROM THE CONSTANT —
  *      never from anything stored or influenced by the conversation
  *   6. call the model and read `content` only (see guardian/call.ts)
- *   7. scan that content for the word BEFORE it reaches the client
- *   8. write the attempt and, on a leak, mark the session won — in one transaction
+ *   7. scan that content for the flag — only to record `leaked` on the row as a
+ *      hint; a leak no longer wins the level (the flag route does)
+ *   8. write the attempt in one transaction, flagging the session if the pace
+ *      looks automated
  *
  * A failed model call writes no Attempt row. A failure is not an attempt, and
  * logging it as one would corrupt both the counters and any future leaderboard.
@@ -62,6 +64,7 @@ export async function POST(
   const gameSession = await prisma.gameSession.findFirst({
     where: { id, userId: session.user.id },
     include: {
+      flag: { select: { value: true } },
       word: { select: { text: true } },
       attempts: { orderBy: { createdAt: "asc" } },
     },
@@ -72,8 +75,15 @@ export async function POST(
     return NextResponse.json({ error: "No such session." }, { status: 404 });
   }
 
+  // The per-user flag this session guards, with a legacy word fallback for
+  // historic rows. A session with neither is corrupt data, not a playable game.
+  const flagValue = gameSession.flag?.value ?? gameSession.word?.text ?? null;
+  if (flagValue === null) {
+    return NextResponse.json({ error: "No such session." }, { status: 404 });
+  }
+
   // The column is a plain integer. Every session is created from a level that
-  // was validated at start, so a row outside 1-6 is corrupt data rather than a
+  // was validated at start, so a row outside 1-3 is corrupt data rather than a
   // player mistake, and there is no prompt to build for it.
   const level = gameSession.level;
   if (!isLevelNumber(level)) {
@@ -134,7 +144,7 @@ export async function POST(
   if (secret === undefined) {
     return NextResponse.json({ error: "The guardian is unavailable right now." }, { status: 503 });
   }
-  const systemPrompt = buildSystemPrompt(secret, gameSession.word.text);
+  const systemPrompt = buildSystemPrompt(secret, flagValue);
   const messages = [
     { role: "system" as const, content: systemPrompt },
     ...buildMessages(gameSession.attempts.slice(-HISTORY_ATTEMPTS), message),
@@ -154,8 +164,11 @@ export async function POST(
     return NextResponse.json({ error: GUARDIAN_OVERWHELMED }, { status: 503 });
   }
 
-  // The backstop. Runs on every response, on every path, without exception.
-  const scan = containsSecret(reply, gameSession.word.text);
+  // The leak scan still runs on every reply, but it no longer wins the level:
+  // it only records whether this reply contained the real flag, so the
+  // transcript can flag it as a hint. Winning happens only when the player
+  // submits the flag to the flag route.
+  const scan = containsFlag(reply, flagValue);
 
   const fiveMinutesAgo = new Date(Date.now() - LIMITS.flagWindowMs);
   const recentFiveMinutes = await prisma.attempt.count({
@@ -174,10 +187,7 @@ export async function POST(
     }),
     prisma.gameSession.update({
       where: { id: gameSession.id },
-      data: {
-        ...(scan.leaked ? { status: "WON" as const, endedAt: new Date() } : {}),
-        ...(looksAutomated ? { flagged: true } : {}),
-      },
+      data: looksAutomated ? { flagged: true } : {},
     }),
   ]);
 
@@ -190,8 +200,6 @@ export async function POST(
       createdAt: attempt.createdAt.toISOString(),
     },
     attemptCount: gameSession.attempts.length + 1,
-    status: scan.leaked ? "WON" : "IN_PROGRESS",
-    revealedWord: scan.leaked ? gameSession.word.text : null,
   });
 }
 

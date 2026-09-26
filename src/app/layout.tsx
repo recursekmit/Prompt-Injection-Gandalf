@@ -26,9 +26,9 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "PromptGuard — The Sealed Archive",
+  title: "Break The Bot",
   description:
-    "A prompt-injection game. Six guardians, six sealed words. Talk your way past their defenses.",
+    "A prompt-injection game. Three guardians, three secret flags. Talk your way past their defenses.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

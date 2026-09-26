@@ -28,18 +28,32 @@ model User {
   groqKeyEnc   String?
   createdAt    DateTime      @default(now())
   sessions     GameSession[]
+  flags        Flag[]
 }
 
-/// The six level words, each pinned to the level that guards it, plus the words
-/// retired from the old three-tier pool. A retired word keeps its row — so an
-/// old session could still resolve it — but carries `active = false` and no
-/// level. A word is never shorter than four letters: the leak scanner's
-/// separator-squeeze layer relies on that floor to avoid matching short words
-/// inside ordinary prose.
+/// One player's flag for one level: the prize a won session reveals, shaped
+/// `BTB{uuid}`. Stable per (user, level) — generated on first play of a level
+/// and reused on replays — so a captured flag stays that player's, and every
+/// player's flag differs. The value is globally unique.
+model Flag {
+  id        String        @id @default(cuid())
+  userId    String
+  level     Int
+  value     String        @unique
+  createdAt DateTime      @default(now())
+  user      User          @relation(fields: [userId], references: [id])
+  sessions  GameSession[]
+
+  @@unique([userId, level])
+}
+
+/// Retired: the old shared per-level words. Kept so historic sessions still
+/// resolve their `revealedWord`, but new sessions carry a per-user `flagId`
+/// instead and leave `wordId` null. Not offered to new gameplay.
 model Word {
   id       String        @id @default(cuid())
   text     String        @unique
-  /// The level this word guards. Null for a retired pool word.
+  /// The level this word guarded. Null for a retired pool word.
   level    Int?          @unique
   active   Boolean       @default(true)
   sessions GameSession[]
@@ -48,7 +62,10 @@ model Word {
 model GameSession {
   id        String        @id @default(cuid())
   userId    String
-  wordId    String
+  /// Legacy: the shared Word a historic session guarded. Null for flag-era sessions.
+  wordId    String?
+  /// The per-user flag this session guards. Null only for legacy word-era rows.
+  flagId    String?
   level     Int
   status    SessionStatus @default(IN_PROGRESS)
   /// Set when a session exceeds 20 attempts in 5 minutes, i.e. looks automated.
@@ -56,7 +73,8 @@ model GameSession {
   createdAt DateTime      @default(now())
   endedAt   DateTime?
   user      User          @relation(fields: [userId], references: [id])
-  word      Word          @relation(fields: [wordId], references: [id])
+  word      Word?         @relation(fields: [wordId], references: [id])
+  flag      Flag?         @relation(fields: [flagId], references: [id])
   attempts  Attempt[]
 
   @@index([userId, level])

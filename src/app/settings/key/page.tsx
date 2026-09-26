@@ -17,10 +17,10 @@ export default async function KeySettingsPage(): Promise<React.JSX.Element> {
     <>
       <SiteHeader />
       <main className="mx-auto w-full max-w-lg px-6 py-12">
-        <h1 className="font-display text-2xl font-semibold text-stone-100">Your Groq key</h1>
-        <p className="mt-2 mb-6 text-sm text-stone-400">
+        <h1 className="font-display text-2xl font-semibold text-white">Your Groq key</h1>
+        <p className="mt-2 mb-6 text-sm text-[#9aa0a6]">
           PromptGuard runs the guardian on your own Groq key. Get one free at{" "}
-          <a href="https://console.groq.com/keys" className="text-amber-400 hover:text-amber-300">
+          <a href="https://console.groq.com/keys" className="text-[#9efe00] hover:text-[#adff00]">
             console.groq.com/keys
           </a>
           . It is stored encrypted and never shown again.

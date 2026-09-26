@@ -25,10 +25,13 @@ interface SessionRow {
   readonly createdAt: Date;
   readonly endedAt: Date | null;
   readonly _count: { readonly attempts: number };
-  readonly word: { readonly text: string };
+  /** The per-user flag this session guarded; null only for legacy word-era rows. */
+  readonly flag: { readonly value: string } | null;
+  /** Legacy fallback for historic sessions created before per-user flags. */
+  readonly word: { readonly text: string } | null;
 }
 
-const LEVEL_NUMBERS: readonly LevelNumber[] = [1, 2, 3, 4, 5, 6];
+const LEVEL_NUMBERS: readonly LevelNumber[] = [1, 2, 3];
 
 function formatDuration(durationMs: number | null): string {
   if (durationMs === null) {
@@ -70,6 +73,7 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
       createdAt: true,
       endedAt: true,
       _count: { select: { attempts: true } },
+      flag: { select: { value: true } },
       word: { select: { text: true } },
     },
   });
@@ -88,7 +92,7 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
       id: row.id,
       level,
       status: row.status,
-      wordText: row.status === "WON" ? row.word.text : null,
+      wordText: row.status === "WON" ? (row.flag?.value ?? row.word?.text ?? null) : null,
       attemptCount: row._count.attempts,
       startedAt: row.createdAt.toISOString(),
       endedAt: row.endedAt === null ? null : row.endedAt.toISOString(),
@@ -116,7 +120,7 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
 
       <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-12">
         <p className="terminal-tag font-mono uppercase tracking-[0.2em] text-[#5f6368]">
-          YOUR_LEDGER // THE SEALED ARCHIVE
+          YOUR_LEDGER // BREAK THE BOT
         </p>
         <h1 className="font-sans text-3xl font-extrabold tracking-tight text-white">
           Your record

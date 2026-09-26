@@ -33,11 +33,7 @@ export async function SiteHeader(): Promise<React.JSX.Element> {
       <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-6 py-4">
         <Link href="/" className="flex items-baseline gap-3">
           <span className="text-xl leading-none font-extrabold tracking-tight text-white">
-            Prompt<span className="text-[#9efe00]">Guard</span>
-          </span>
-          <span aria-hidden="true" className="hidden h-4 w-px self-center bg-[#22272e] sm:block" />
-          <span className="hidden font-mono text-[10px] uppercase tracking-[0.3em] text-[#5f6368] sm:inline">
-            THE SEALED ARCHIVE
+            Break The <span className="text-[#9efe00]">Bot</span>
           </span>
         </Link>
         <nav className="flex flex-wrap items-center gap-4 text-sm">

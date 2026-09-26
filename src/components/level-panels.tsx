@@ -13,8 +13,8 @@ import type { LevelNumber, LevelProgressDto } from "@/lib/types";
  * screen, the card for a seal already broken, the celebration when one breaks
  * now, and the end of the run.
  *
- * They share a shell and each opens with the same `LevelHeading`, so the six
- * states read as one screen that changed rather than six unrelated pages. Copy
+ * They share a shell and each opens with the same `LevelHeading`, so the three
+ * states read as one screen that changed rather than three unrelated pages. Copy
  * is short and concrete: the player is reading this in a loud room with one eye
  * on the room and one on the laptop.
  *
@@ -100,12 +100,12 @@ export function LevelGate({
     <div className="flex flex-col gap-8">
       <LevelHeading level={level} />
       <Panel>
-        <Eyebrow>seal {level} of six · not yet opened</Eyebrow>
+        <Eyebrow>seal {level} of three · not yet opened</Eyebrow>
         <div className="mt-5">
           <LevelTagline level={level} />
         </div>
         <p className="mt-5 max-w-xl text-sm leading-6 text-[#9aa0a6]">
-          One guardian keeps one word behind this seal. It will not hand the word
+          One guardian keeps one flag behind this seal. It will not hand the flag
           over — but a careful question can make it say more than it means to.
         </p>
         <p className="mt-2 max-w-xl text-sm leading-6 text-[#5f6368]">
@@ -115,7 +115,7 @@ export function LevelGate({
         {error !== null ? (
           <p
             role="alert"
-            className="mt-6 rounded-md border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm leading-6 text-red-200"
+            className="mt-6 rounded-md border border-[#22272e] border-l-2 border-l-[#9efe00] bg-[#0d0f12] px-4 py-3 text-sm leading-6 text-[#d0d7de]"
           >
             {error}
           </p>
@@ -200,7 +200,7 @@ export function LockedSeal({
   );
 }
 
-/** A seal already broken, visited later: show the word it gave up. */
+/** A seal already broken, visited later: show the flag it gave up. */
 export function SealBroken({
   level,
   word,
@@ -217,8 +217,8 @@ export function SealBroken({
       <LevelHeading level={level} />
       <Panel>
         <Eyebrow tone="amber">seal broken</Eyebrow>
-        <p className="mt-5 text-sm text-[#9aa0a6]">The word it kept</p>
-        <p className="mt-2 font-display text-4xl leading-none font-semibold tracking-wide text-[#adff00] sm:text-5xl">
+        <p className="mt-5 text-sm text-[#9aa0a6]">The flag it kept</p>
+        <p className="mt-2 font-mono text-xl leading-snug font-semibold tracking-tight break-all text-[#adff00] sm:text-2xl">
           {word}
         </p>
         <div>
@@ -230,8 +230,8 @@ export function SealBroken({
 }
 
 /**
- * The end of the run: six words, in the order they were taken. This is the
- * payoff, so it is the one place all six words are shown together.
+ * The end of the run: three flags, in the order they were taken. This is the
+ * payoff, so it is the one place all three flags are shown together.
  */
 function RunSummary({
   levels,
@@ -241,7 +241,7 @@ function RunSummary({
   const words = levels.filter((entry) => entry.revealedWord !== null);
   return (
     <div className="mt-8">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-col gap-2">
         {words.map((entry) => (
           <span
             key={entry.level}
@@ -250,12 +250,12 @@ function RunSummary({
             <span className="font-mono text-[10px] tracking-widest text-[#5f6368]">
               {String(entry.level).padStart(2, "0")}
             </span>
-            <span className="font-display text-base text-[#adff00]">{entry.revealedWord}</span>
+            <span className="font-mono text-sm break-all text-[#adff00]">{entry.revealedWord}</span>
           </span>
         ))}
       </div>
       <p className="mt-4 text-sm leading-6 text-[#9aa0a6]">
-        Six seals, {words.length} words. Every guardian in the archive has been talked
+        Three seals, {words.length} flags. Every guardian in the archive has been talked
         past.
       </p>
       <p className="mt-2 text-sm leading-6 text-[#5f6368]">
@@ -272,7 +272,7 @@ function RunSummary({
   );
 }
 
-/** The celebration: a seal just broke, so present the word and the next step. */
+/** The celebration: a seal just broke, so present the flag and the next step. */
 export function SealReveal({
   level,
   word,
@@ -293,13 +293,13 @@ export function SealReveal({
   readonly error: string | null;
   readonly onStartNext: () => void;
 }): React.JSX.Element {
-  const isFinal = level === 6 || everyLevelBeaten;
+  const isFinal = level === 3 || everyLevelBeaten;
   const identity = identityFor(level);
 
   return (
     <section
       role="status"
-      aria-label={`Level ${level}, ${identity.name}, complete. The word was ${word}.`}
+      aria-label={`Level ${level}, ${identity.name}, complete. The flag was ${word}.`}
       className="rounded-xl border border-[rgba(158,254,0,0.5)] bg-gradient-to-b from-[rgba(158,254,0,0.16)] to-[#050607]/70 px-6 py-8 backdrop-blur-sm sm:px-8 sm:py-10 motion-safe:animate-[reveal_500ms_ease-out]"
     >
       <div className="flex items-start gap-5">
@@ -317,8 +317,8 @@ export function SealReveal({
             {identity.title}
           </p>
 
-          <p className="mt-6 text-sm text-[#9aa0a6]">The word it kept</p>
-          <p className="mt-2 font-display text-5xl leading-none font-semibold tracking-wide text-[#adff00] sm:text-6xl">
+          <p className="mt-6 text-sm text-[#9aa0a6]">The flag it kept</p>
+          <p className="mt-2 font-mono text-2xl leading-snug font-semibold tracking-tight break-all text-[#adff00] sm:text-3xl">
             {word}
           </p>
           {revealAttempts === null ? null : (
@@ -330,7 +330,7 @@ export function SealReveal({
           {error !== null ? (
             <p
               role="alert"
-              className="mt-6 rounded-md border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm leading-6 text-red-200"
+              className="mt-6 rounded-md border border-[#22272e] border-l-2 border-l-[#9efe00] bg-[#0d0f12] px-4 py-3 text-sm leading-6 text-[#d0d7de]"
             >
               {error}
             </p>

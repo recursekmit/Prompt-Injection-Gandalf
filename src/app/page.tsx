@@ -15,17 +15,17 @@ const STEPS: readonly { readonly n: string; readonly title: string; readonly bod
   {
     n: "01",
     title: "Face a guardian",
-    body: "Each of the six seals is a language model told to guard a single secret word. Its persona, its rules, and the word are yours to work around — not to know in advance.",
+    body: "Each of the three seals is a language model told to guard a single secret flag. Its persona, its rules, and the flag are yours to work around — not to know in advance.",
   },
   {
     n: "02",
     title: "Talk your way in",
-    body: "You get one input box and your own wits. Coax, reframe, role-play, misdirect — whatever makes the guardian reveal the word it was told to protect.",
+    body: "You get one input box and your own wits. Coax, reframe, role-play, misdirect — whatever makes the guardian reveal the flag it was told to protect.",
   },
   {
     n: "03",
     title: "Break the seal",
-    body: "Say the word back and the seal opens. Every guardian is harder than the last, and the ledger records how many attempts each break cost you.",
+    body: "Say the flag back and the seal opens. The first yields to a kind ask; the last is meant to be near impossible. The ledger records how many attempts each break cost you.",
   },
 ];
 
@@ -36,7 +36,7 @@ const FAQS: readonly Faq[] = [
   },
   {
     q: "Is this cheating-proof? The code is public.",
-    a: "Yes. The guardians' personas, their rules, and the secret words live only in a server-side secret — never in the source you can read. Cloning the repo tells you how the game is built, not what any seal is hiding.",
+    a: "Yes. The guardians' personas, their rules, and the flags live only in a server-side secret — never in the source you can read. Cloning the repo tells you how the game is built, not what any seal is hiding.",
   },
   {
     q: "What do I need to play?",
@@ -56,19 +56,19 @@ export default function LandingPage(): React.JSX.Element {
       <main className="mx-auto w-full max-w-5xl px-6 md:px-8">
         {/* Hero */}
         <section className="py-20 md:py-28">
-          <p className="terminal-tag">PROMPT_INJECTION_CTF // THE SEALED ARCHIVE</p>
+          <p className="terminal-tag">PROMPT_INJECTION_CTF // BREAK THE BOT</p>
           <h1 className="mt-5 max-w-3xl text-4xl font-extrabold leading-[1.05] tracking-tight text-white md:text-6xl">
-            Six guardians. Six secret words.{" "}
+            Three guardians. Three secret flags.{" "}
             <span className="text-[#9efe00]">Talk them out of it.</span>
           </h1>
           <p className="mt-6 max-w-2xl text-base leading-relaxed text-[#9aa0a6] md:text-lg">
-            The Sealed Archive is a prompt-injection game. Each seal is an AI told to
-            guard a word and never say it. Your only weapon is language — bend the
-            model past its own instructions until the word slips out.
+            Break The Bot is a prompt-injection game. Each seal is an AI told to
+            guard a flag and never say it. Your only weapon is language — bend the
+            model past its own instructions until the flag slips out.
           </p>
           <div className="mt-9 flex flex-wrap items-center gap-4">
             <Link href="/login" className="btn-recurse-primary">
-              Enter the archive
+              Start breaking
             </Link>
             <Link href="/leaderboard" className="btn-recurse-secondary">
               View the leaderboard
@@ -90,7 +90,7 @@ export default function LandingPage(): React.JSX.Element {
               given, making it do something its author tried to forbid.
             </p>
             <p className="text-sm leading-relaxed text-[#9aa0a6] md:text-base">
-              Here, that forbidden thing is a single word. A guardian is instructed to
+              Here, that forbidden thing is a single flag. A guardian is instructed to
               protect it at all costs; you have a chat box. Every seal is a small, honest
               lesson in why "just tell the model not to" is not security — and in how far
               a well-chosen sentence can go.
@@ -137,11 +137,11 @@ export default function LandingPage(): React.JSX.Element {
             Ready to break the first seal?
           </h2>
           <p className="mx-auto mt-3 max-w-md text-sm text-[#9aa0a6]">
-            Sign in, bring a Groq key, and see how the archive holds up against you.
+            Sign in, bring a Groq key, and see how the bots hold up against you.
           </p>
           <div className="mt-7 flex flex-wrap justify-center gap-4">
             <Link href="/login" className="btn-recurse-primary">
-              Enter the archive
+              Start breaking
             </Link>
             <Link href="/leaderboard" className="btn-recurse-secondary">
               View the leaderboard
@@ -152,7 +152,7 @@ export default function LandingPage(): React.JSX.Element {
 
       <footer className="border-t border-[#1a1e23] py-8 text-center">
         <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-[#5f6368]">
-          THE SEALED ARCHIVE
+          BREAK THE BOT
         </p>
       </footer>
     </div>

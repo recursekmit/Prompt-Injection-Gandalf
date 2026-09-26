@@ -35,7 +35,7 @@ export async function POST(request: Request): Promise<Response> {
   const level = (body as { level?: unknown } | null)?.level;
   if (!isLevelNumber(level)) {
     return NextResponse.json(
-      { error: "A level number from 1 to 6 is required." },
+      { error: "A level number from 1 to 3 is required." },
       { status: 400 },
     );
   }
@@ -43,7 +43,7 @@ export async function POST(request: Request): Promise<Response> {
   const progress = await getProgress(session.user.id);
 
   // Checked before the comparisons below: with every level beaten,
-  // `currentLevel` is level 6, which is itself beaten, so the locked and
+  // `currentLevel` is the last level, which is itself beaten, so the locked and
   // already-beaten tests cannot distinguish this state on their own.
   if (progress.levels.every((levelProgress) => levelProgress.status === "COMPLETED")) {
     return NextResponse.json({ error: "You have beaten every level." }, { status: 409 });

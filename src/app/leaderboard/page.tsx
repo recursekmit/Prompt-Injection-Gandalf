@@ -19,7 +19,7 @@ export default async function LeaderboardPage(): Promise<React.JSX.Element> {
 
       <main className="mx-auto w-full max-w-6xl px-6 py-12 md:px-8">
         <header>
-          <p className="terminal-tag">LIVE_RANKINGS // THE SEALED ARCHIVE</p>
+          <p className="terminal-tag">LIVE_RANKINGS // BREAK THE BOT</p>
           <h1 className="mt-3 font-mono text-[2.5rem] font-black uppercase leading-none tracking-tight text-white">
             SEAL BREAKERS
           </h1>
@@ -40,7 +40,7 @@ export default async function LeaderboardPage(): Promise<React.JSX.Element> {
 
           <div className="overflow-x-auto">
             <table
-              aria-label="PromptGuard public leaderboard: seal breakers ranked by seals drawn"
+              aria-label="Break The Bot public leaderboard: seal breakers ranked by seals drawn"
               className="w-full min-w-[48rem] border-collapse text-left font-mono text-sm"
             >
               <thead>

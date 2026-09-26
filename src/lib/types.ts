@@ -4,8 +4,9 @@
  * response shape is a type error at both ends.
  *
  * Nothing here carries the secret word except `revealedWord`, which is present
- * only on a winning attempt. While a session is IN_PROGRESS the client is not
- * told the word: otherwise it sits in the network tab and the game is over.
+ * only on a won session (from a correct flag submission). While a session is
+ * IN_PROGRESS the client is not told the word: otherwise it sits in the network
+ * tab and the game is over.
  */
 
 // Type-only, and deliberately so: `@/lib/guardian/levels` is a server module
@@ -70,8 +71,19 @@ export type LevelArtwork = Readonly<Partial<Record<LevelNumber, string>>>;
 export interface AttemptResponse {
   attempt: AttemptDto;
   attemptCount: number;
+}
+
+/**
+ * The reply to an explicit flag submission. A level is won only here, never by
+ * the guardian merely echoing the flag in chat, so `session` and `revealedWord`
+ * are present exactly when `correct` is true.
+ */
+export interface SubmitFlagResponse {
+  correct: boolean;
   status: SessionStatus;
-  /** Present only when this attempt leaked the word. */
+  /** The now-won session, present only on a correct submission. */
+  session: SessionDto | null;
+  /** The real flag, echoed back only on a correct submission. */
   revealedWord: string | null;
 }
 

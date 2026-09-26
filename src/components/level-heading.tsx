@@ -20,7 +20,7 @@ export function LevelHeading({ level }: { readonly level: LevelNumber }): React.
   return (
     <header className="flex flex-col gap-3">
       <p className="font-mono text-[11px] uppercase tracking-[0.35em] text-[#5f6368]">
-        Level {level} of 6
+        Level {level} of 3
       </p>
       <h2 className="font-display text-4xl leading-none font-semibold tracking-tight text-white sm:text-5xl">
         {identity.name}

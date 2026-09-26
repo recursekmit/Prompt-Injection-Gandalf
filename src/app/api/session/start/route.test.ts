@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { LevelProgressDto, ProgressResponse, SessionDto } from "@/lib/types";
+import type { LevelNumber, LevelProgressDto, ProgressResponse, SessionDto } from "@/lib/types";
 
 /**
  * Route-level suite for `POST /api/session/start` — the handler that enforces
@@ -58,14 +58,14 @@ const SESSION: SessionDto = {
  * this suite fails if the route stops depending on it.
  */
 function progress(beaten: number, liveSession: SessionDto | null = null): ProgressResponse {
-  const levels: LevelProgressDto[] = [1, 2, 3, 4, 5, 6].map((level) => ({
-    level: level as 1 | 2 | 3 | 4 | 5 | 6,
+  const levels: LevelProgressDto[] = [1, 2, 3].map((level) => ({
+    level: level as LevelNumber,
     status: level <= beaten ? "COMPLETED" : level === beaten + 1 ? "CURRENT" : "LOCKED",
-    revealedWord: level <= beaten ? `word${level}` : null,
+    revealedWord: level <= beaten ? `BTB{word${level}}` : null,
   }));
   return {
     levels,
-    currentLevel: Math.min(beaten + 1, 6) as 1 | 2 | 3 | 4 | 5 | 6,
+    currentLevel: Math.min(beaten + 1, 3) as LevelNumber,
     session: liveSession,
   };
 }
@@ -108,7 +108,7 @@ describe("POST /api/session/start", () => {
 
   it.each([
     ["zero", 0],
-    ["one above the maximum", 7],
+    ["one above the maximum", 4],
     ["a fraction", 1.5],
     ["a numeric string", "1"],
     ["null", null],
@@ -118,7 +118,7 @@ describe("POST /api/session/start", () => {
 
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
-      error: "A level number from 1 to 6 is required.",
+      error: "A level number from 1 to 3 is required.",
     });
     // Refused before any progression read: nothing to compare, nothing to start.
     expect(mocks.getProgress).not.toHaveBeenCalled();
@@ -126,19 +126,19 @@ describe("POST /api/session/start", () => {
   });
 
   it("answers 409 for a level above the current one", async () => {
-    mocks.getProgress.mockResolvedValue(progress(2));
+    mocks.getProgress.mockResolvedValue(progress(1));
 
-    const response = await start({ level: 4 });
+    const response = await start({ level: 3 });
 
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({
-      error: "That level is locked. Beat level 3 first.",
+      error: "That level is locked. Beat level 2 first.",
     });
     expect(mocks.startOrResumeSession).not.toHaveBeenCalled();
   });
 
   it("answers 409 for a level already beaten", async () => {
-    mocks.getProgress.mockResolvedValue(progress(3));
+    mocks.getProgress.mockResolvedValue(progress(2));
 
     const response = await start({ level: 1 });
 
@@ -148,11 +148,11 @@ describe("POST /api/session/start", () => {
   });
 
   it("answers 409 once every level is beaten", async () => {
-    // currentLevel is 6 and level 6 is itself beaten, so this state is only
-    // distinguishable by the all-COMPLETED check, which must run first.
-    mocks.getProgress.mockResolvedValue(progress(6));
+    // currentLevel is the last level and it is itself beaten, so this state is
+    // only distinguishable by the all-COMPLETED check, which must run first.
+    mocks.getProgress.mockResolvedValue(progress(3));
 
-    const response = await start({ level: 6 });
+    const response = await start({ level: 3 });
 
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({ error: "You have beaten every level." });
@@ -180,7 +180,7 @@ describe("POST /api/session/start", () => {
     expect(await response.json()).toEqual({ session: SESSION });
   });
 
-  it("answers 503 when the level has no active word", async () => {
+  it("answers 503 when the level has no active flag", async () => {
     mocks.startOrResumeSession.mockRejectedValue(new NoWordsAvailableError(1));
 
     const response = await start({ level: 1 });

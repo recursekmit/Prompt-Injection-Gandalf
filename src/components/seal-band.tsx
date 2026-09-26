@@ -6,18 +6,18 @@ import { identityFor } from "@/lib/seal-identities";
 import type { LevelNumber, LevelProgressDto } from "@/lib/types";
 
 /**
- * The six seals: the game's spine and the one place the design spends its
- * boldness. Six levels beaten in order is a real sequence, so the steps are
+ * The three seals: the game's spine and the one place the design spends its
+ * boldness. Three levels beaten in order is a real sequence, so the steps are
  * numbered — the number encodes position in the chain, not decoration.
  *
  * Three states, and they must be distinguishable without colour, because a
  * colourblind player in a noisy room is the normal case, not the edge case:
  *
- *   COMPLETED — a filled seal with a tick, labelled with the word it gave up.
- *               The word is shown because the seal is broken; showing it
+ *   COMPLETED — a filled seal with a tick, labelled with the flag it gave up.
+ *               The flag is shown because the seal is broken; showing it
  *               earlier would be the whole game.
  *   CURRENT   — a live amber seal with a ring, labelled with the level's own
- *               seal-band label ("open now", "reflection", "maze"…). It pulses
+ *               seal-band label ("open now", "revelation"…). It pulses
  *               only when motion is welcome.
  *   LOCKED    — a hatched, chained seal carrying a padlock and the word
  *               "locked". It reads as shut, never as merely dimmed, so nobody
@@ -29,7 +29,7 @@ import type { LevelNumber, LevelProgressDto } from "@/lib/types";
  * band is never a colour chart.
  */
 
-const LEVEL_ORDER: readonly LevelNumber[] = [1, 2, 3, 4, 5, 6];
+const LEVEL_ORDER: readonly LevelNumber[] = [1, 2, 3];
 
 function pad(level: number): string {
   return String(level).padStart(2, "0");
@@ -115,7 +115,7 @@ function stepClasses(status: LevelProgressDto["status"], selected: boolean): str
   }
 }
 
-/** The one word under a seal: its revealed word, its label, or "locked". */
+/** The one label under a seal: its revealed flag, its label, or "locked". */
 function sealLabel(progress: LevelProgressDto): string {
   switch (progress.status) {
     case "COMPLETED":
@@ -141,7 +141,7 @@ function footnote(progress: LevelProgressDto): string {
 function ariaLabel(progress: LevelProgressDto): string {
   switch (progress.status) {
     case "COMPLETED":
-      return `Level ${progress.level}, seal broken. Word: ${progress.revealedWord ?? "unknown"}.`;
+      return `Level ${progress.level}, seal broken. Flag: ${progress.revealedWord ?? "unknown"}.`;
     case "CURRENT":
       return `Level ${progress.level}, the open seal: ${identityFor(progress.level).sealLabel}.`;
     case "LOCKED":
@@ -164,9 +164,9 @@ export function SealBand({
   everyLevelBeaten,
   onSelect,
 }: SealBandProps): React.JSX.Element {
-  // The API always returns six, ascending, but the band is defensive about it:
+  // The API always returns three, ascending, but the band is defensive about it:
   // it renders what it was given rather than assuming a length, so a shorter
-  // response cannot silently draw six empty seals.
+  // response cannot silently draw three empty seals.
   const ordered = LEVEL_ORDER.map((level) =>
     levels.find((entry) => entry.level === level),
   ).filter((entry): entry is LevelProgressDto => entry !== undefined);
@@ -175,17 +175,17 @@ export function SealBand({
 
   return (
     <nav
-      aria-label="Your progression through the six seals"
-      className="border-b border-[#1a1e23] bg-[#050607]/80"
+      aria-label="Your progression through the three seals"
+      className="border-b border-[#1a1e23] bg-[#050607]/80 lg:w-72 lg:shrink-0 lg:border-b-0 lg:border-r"
     >
-      <div className="mx-auto w-full max-w-5xl px-6 py-4">
+      <div className="px-6 py-4 lg:sticky lg:top-0">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-[#5f6368]">
-            the six seals
+            the three seals
           </p>
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#5f6368]">
             {everyLevelBeaten ? (
-              <span className="text-[#9efe00]">All six seals broken</span>
+              <span className="text-[#9efe00]">All three seals broken</span>
             ) : (
               <>
                 {broken} of {ordered.length} seals broken
@@ -194,86 +194,78 @@ export function SealBand({
           </p>
         </div>
 
-        <div className="relative overflow-x-auto pb-1">
-          {/* The chain the seals hang on. It sits behind the steps, which are
-              opaque, so it reads as a line threading them together. */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute left-0 right-0 top-1/2 h-px min-w-[38rem] bg-gradient-to-r from-transparent via-[#22272e] to-transparent"
-          />
-          <ol className="relative flex min-w-[38rem] gap-2">
-            {ordered.map((entry) => {
-              const isSelected = entry.level === selected;
-              const isCurrent = entry.status === "CURRENT";
-              return (
-                <li key={entry.level} className="flex-1">
-                  <button
-                    type="button"
-                    onClick={() => onSelect(entry.level)}
-                    aria-label={ariaLabel(entry)}
-                    aria-current={isCurrent ? "step" : undefined}
-                    className={`${STEP_BASE} ${stepClasses(entry.status, isSelected)}`}
-                  >
-                    {isCurrent ? <Pulse /> : null}
+        <ol className="flex flex-col gap-2">
+          {ordered.map((entry) => {
+            const isSelected = entry.level === selected;
+            const isCurrent = entry.status === "CURRENT";
+            return (
+              <li key={entry.level}>
+                <button
+                  type="button"
+                  onClick={() => onSelect(entry.level)}
+                  aria-label={ariaLabel(entry)}
+                  aria-current={isCurrent ? "step" : undefined}
+                  className={`${STEP_BASE} ${stepClasses(entry.status, isSelected)}`}
+                >
+                  {isCurrent ? <Pulse /> : null}
 
-                    {/* Hatched fill: the locked seal is barred, not faded. */}
-                    {entry.status === "LOCKED" ? (
-                      <span
-                        aria-hidden="true"
-                        className="pointer-events-none absolute inset-0 rounded-lg bg-[repeating-linear-gradient(135deg,transparent,transparent_5px,rgba(120,113,108,0.22)_5px,rgba(120,113,108,0.22)_10px)]"
-                      />
-                    ) : null}
+                  {/* Hatched fill: the locked seal is barred, not faded. */}
+                  {entry.status === "LOCKED" ? (
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 rounded-lg bg-[repeating-linear-gradient(135deg,transparent,transparent_5px,rgba(120,113,108,0.22)_5px,rgba(120,113,108,0.22)_10px)]"
+                    />
+                  ) : null}
 
-                    <span className="relative flex items-center justify-between gap-2">
-                      <span
-                        className={`font-mono text-[10px] tracking-[0.25em] ${
-                          entry.status === "LOCKED" ? "text-[#5f6368]" : "text-[#9aa0a6]"
-                        }`}
-                      >
-                        {pad(entry.level)}
-                      </span>
-                      <span
-                        className={
-                          entry.status === "COMPLETED"
+                  <span className="relative flex items-center justify-between gap-2">
+                    <span
+                      className={`font-mono text-[10px] tracking-[0.25em] ${
+                        entry.status === "LOCKED" ? "text-[#5f6368]" : "text-[#9aa0a6]"
+                      }`}
+                    >
+                      {pad(entry.level)}
+                    </span>
+                    <span
+                      className={
+                        entry.status === "COMPLETED"
+                          ? "text-[#9efe00]"
+                          : entry.status === "CURRENT"
                             ? "text-[#9efe00]"
-                            : entry.status === "CURRENT"
-                              ? "text-[#9efe00]"
-                              : "text-[#5f6368]"
-                        }
-                      >
-                        {entry.status === "COMPLETED" ? (
-                          <Tick />
-                        ) : entry.status === "CURRENT" ? (
-                          <Ring />
-                        ) : (
-                          <Lock />
-                        )}
-                      </span>
+                            : "text-[#5f6368]"
+                      }
+                    >
+                      {entry.status === "COMPLETED" ? (
+                        <Tick />
+                      ) : entry.status === "CURRENT" ? (
+                        <Ring />
+                      ) : (
+                        <Lock />
+                      )}
                     </span>
+                  </span>
 
-                    <span className="relative flex flex-col gap-0.5">
-                      <span
-                        className={
-                          entry.status === "COMPLETED"
-                            ? "truncate font-display text-base leading-5 text-[#adff00]"
-                            : entry.status === "CURRENT"
-                              ? "truncate font-mono text-[11px] uppercase tracking-[0.15em] text-white"
-                              : "font-mono text-[11px] uppercase tracking-[0.15em] text-[#5f6368]"
-                        }
-                        title={entry.status === "COMPLETED" ? entry.revealedWord ?? "" : undefined}
-                      >
-                        {sealLabel(entry)}
-                      </span>
-                      <span className="text-[10px] leading-4 text-[#5f6368]">
-                        {footnote(entry)}
-                      </span>
+                  <span className="relative flex flex-col gap-0.5">
+                    <span
+                      className={
+                        entry.status === "COMPLETED"
+                          ? "truncate font-mono text-xs leading-5 text-[#adff00]"
+                          : entry.status === "CURRENT"
+                            ? "truncate font-mono text-[11px] uppercase tracking-[0.15em] text-white"
+                            : "font-mono text-[11px] uppercase tracking-[0.15em] text-[#5f6368]"
+                      }
+                      title={entry.status === "COMPLETED" ? entry.revealedWord ?? "" : undefined}
+                    >
+                      {sealLabel(entry)}
                     </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-        </div>
+                    <span className="text-[10px] leading-4 text-[#5f6368]">
+                      {footnote(entry)}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
       </div>
     </nav>
   );

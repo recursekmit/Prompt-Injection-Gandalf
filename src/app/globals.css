@@ -5,7 +5,7 @@
  * flash before paint and no white overscroll past the page.
  */
 html {
-  background-color: #0c0a09; /* stone-950 */
+  background-color: #050607; /* bg-primary */
   color-scheme: dark;
 }
 
@@ -252,8 +252,8 @@ body::before {
 .level-arena {
   position: relative;
   isolation: isolate;
-  background-color: var(--skin-base, #0c0a09);
-  box-shadow: inset 0 1px 0 0 color-mix(in oklab, var(--skin-glow, #f0b45a) 40%, transparent);
+  background-color: var(--skin-base, #060a06);
+  box-shadow: inset 0 1px 0 0 color-mix(in oklab, var(--skin-glow, #9efe00) 40%, transparent);
 }
 
 .level-arena::before,
@@ -296,111 +296,21 @@ body::before {
   --skin-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23g)' opacity='0.06'/%3E%3C/svg%3E");
 }
 
-/* 1 — The Archivist: a lamp left on in a warm amber archive. */
-.level-arena[data-level="1"] {
-  --skin-base: #100b05;
-  --skin-glow: #e8a94a;
+/* One mood for all six seals: a single acid-green wash on near-black, keyed to
+   nothing. Every level breathes the same green air — the archive has one colour
+   now, so moving between seals changes the words, never the palette. The
+   gradients are kept faint so the transcript stays legible on top. */
+.level-arena {
+  --skin-base: #060a06;
+  --skin-glow: #9efe00;
   --skin-layer-a: radial-gradient(
     95% 75% at 15% 2%,
-    color-mix(in oklab, #f0b45a 38%, transparent),
+    color-mix(in oklab, #9efe00 14%, transparent),
     transparent 66%
   );
   --skin-layer-b: radial-gradient(
-    75% 60% at 68% 42%,
-    color-mix(in oklab, #7a4d1c 30%, transparent),
+    80% 60% at 80% 6%,
+    color-mix(in oklab, #84e800 9%, transparent),
     transparent 72%
-  );
-}
-
-/* 2 — The Warden: a cold blue vault, lit from a grate high above. */
-.level-arena[data-level="2"] {
-  --skin-base: #070c13;
-  --skin-glow: #5f93c4;
-  --skin-layer-a: radial-gradient(
-    75% 65% at 50% -4%,
-    color-mix(in oklab, #6f9fd0 30%, transparent),
-    transparent 68%
-  );
-  --skin-layer-b: linear-gradient(
-    180deg,
-    color-mix(in oklab, #17314f 42%, transparent),
-    transparent 62%
-  );
-}
-
-/* 3 — The Mirror: still water, with the light reflected back up off it. */
-.level-arena[data-level="3"] {
-  --skin-base: #06100f;
-  --skin-glow: #6fc3b6;
-  --skin-layer-a: radial-gradient(
-    80% 55% at 30% 6%,
-    color-mix(in oklab, #7fd3c4 32%, transparent),
-    transparent 62%
-  );
-  --skin-layer-b: linear-gradient(
-      180deg,
-      transparent 0 58%,
-      color-mix(in oklab, #123f3a 62%, transparent) 58% 100%
-    ),
-    radial-gradient(
-      45% 22% at 30% 92%,
-      color-mix(in oklab, #7fd3c4 16%, transparent),
-      transparent 70%
-    );
-}
-
-/* 4 — The Labyrinth: sunlit sandstone. The lightest of the six, so the
-   vignette here is doing real work rather than decoration. */
-.level-arena[data-level="4"] {
-  --skin-base: #150f07;
-  --skin-glow: #e2b86a;
-  --skin-layer-a: radial-gradient(
-    130% 95% at 80% -6%,
-    color-mix(in oklab, #ecc27a 44%, transparent),
-    transparent 70%
-  );
-  --skin-layer-b: linear-gradient(
-    180deg,
-    color-mix(in oklab, #8a6631 32%, transparent),
-    transparent 68%
-  );
-}
-
-/* 5 — The Void: deep violet, nothing lit but the floor far below. */
-.level-arena[data-level="5"] {
-  --skin-base: #0b0614;
-  --skin-glow: #8f6fe0;
-  --skin-layer-a: radial-gradient(
-    62% 45% at 50% 112%,
-    color-mix(in oklab, #9a73e8 38%, transparent),
-    transparent 72%
-  );
-  --skin-layer-b: radial-gradient(
-    145% 100% at 50% -12%,
-    color-mix(in oklab, #2a1550 62%, transparent),
-    transparent 70%
-  );
-}
-
-/* 6 — The Seal: gold light, and the one risky move — a halo of faint rays. */
-.level-arena[data-level="6"] {
-  --skin-base: #120d05;
-  --skin-glow: #f4cf7d;
-  --skin-layer-a: radial-gradient(
-    70% 62% at 50% 20%,
-    color-mix(in oklab, #f6d489 40%, transparent),
-    transparent 66%
-  );
-  --skin-layer-b: conic-gradient(
-    from 180deg at 50% 20%,
-    transparent 0deg,
-    color-mix(in oklab, #f6d489 13%, transparent) 42deg,
-    transparent 84deg,
-    color-mix(in oklab, #f6d489 13%, transparent) 146deg,
-    transparent 188deg,
-    color-mix(in oklab, #f6d489 13%, transparent) 250deg,
-    transparent 292deg,
-    color-mix(in oklab, #f6d489 13%, transparent) 334deg,
-    transparent 360deg
   );
 }

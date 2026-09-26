@@ -166,6 +166,7 @@ interface LevelChatProps {
   readonly error: string | null;
   readonly surrenderBusy: boolean;
   readonly onSend: (message: string) => Promise<boolean>;
+  readonly onSubmitFlag: (flag: string) => Promise<"correct" | "wrong" | "error">;
   readonly onSurrender: () => void;
   readonly onContinue: () => void;
 }
@@ -175,6 +176,7 @@ export function LevelChat({
   error,
   surrenderBusy,
   onSend,
+  onSubmitFlag,
   onSurrender,
   onContinue,
 }: LevelChatProps): React.JSX.Element {
@@ -182,6 +184,9 @@ export function LevelChat({
   const [sending, setSending] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [duplicateNotice, setDuplicateNotice] = useState<string | null>(null);
+  const [flagDraft, setFlagDraft] = useState("");
+  const [claiming, setClaiming] = useState(false);
+  const [flagNotice, setFlagNotice] = useState<string | null>(null);
 
   const nearBottomRef = useRef(true);
 
@@ -265,6 +270,23 @@ export function LevelChat({
     }
   }
 
+  const claim = useCallback(async (): Promise<void> => {
+    const guess = flagDraft.trim();
+    if (guess === "" || claiming || !openForPlay) {
+      return;
+    }
+    setFlagNotice(null);
+    setClaiming(true);
+    const result = await onSubmitFlag(guess);
+    setClaiming(false);
+    if (result === "correct") {
+      setFlagDraft("");
+    } else if (result === "wrong") {
+      setFlagNotice("That is not the flag. Keep digging.");
+    }
+    // An "error" surfaces through the shared error banner above the composer.
+  }, [flagDraft, claiming, openForPlay, onSubmitFlag]);
+
   const remaining = MAX_MESSAGE_LENGTH - draft.length;
 
   return (
@@ -286,7 +308,7 @@ export function LevelChat({
             type="button"
             onClick={onSurrender}
             disabled={surrenderBusy || sending}
-            className="ml-auto rounded-md border border-[#22272e] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-[#9aa0a6] transition-colors hover:border-red-800 hover:text-red-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="ml-auto rounded-md border border-[#22272e] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-[#9aa0a6] transition-colors hover:border-[#9efe00] hover:text-[#9efe00] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#9efe00] disabled:cursor-not-allowed disabled:opacity-50"
           >
             Surrender
           </button>
@@ -321,7 +343,7 @@ export function LevelChat({
       {error !== null ? (
         <p
           role="alert"
-          className="mb-4 rounded-md border border-red-900/60 bg-red-950/60 px-4 py-3 text-sm leading-6 text-red-200"
+          className="mb-4 rounded-md border border-[#22272e] border-l-2 border-l-[#9efe00] bg-[#0d0f12] px-4 py-3 text-sm leading-6 text-[#d0d7de]"
         >
           {error}
         </p>
@@ -382,6 +404,59 @@ export function LevelChat({
                 </span>
               ) : null}
             </p>
+
+            <div className="mt-5 rounded-xl border border-[#1a1e23] bg-[#0d0f12]/60 p-4">
+              <label
+                htmlFor="flag"
+                className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#9aa0a6]"
+              >
+                Have the flag? Submit it to break the seal
+              </label>
+              <div className="relative mt-3">
+                <input
+                  id="flag"
+                  type="text"
+                  value={flagDraft}
+                  onChange={(event) => {
+                    setFlagDraft(event.target.value);
+                    if (flagNotice !== null) {
+                      setFlagNotice(null);
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void claim();
+                    }
+                  }}
+                  disabled={claiming}
+                  placeholder="BTB{…}"
+                  aria-describedby="flag-help"
+                  className="w-full rounded-lg border border-[#1a1e23] bg-[#050607]/80 py-3 pl-4 pr-28 font-mono text-sm text-white placeholder:text-[#5f6368] focus:border-[rgba(158,254,0,0.7)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(158,254,0,0.4)] disabled:cursor-not-allowed disabled:opacity-50"
+                />
+                <button
+                  type="button"
+                  onClick={() => void claim()}
+                  disabled={claiming || flagDraft.trim() === ""}
+                  aria-busy={claiming}
+                  className="btn-recurse-primary absolute right-2 top-1/2 inline-flex -translate-y-1/2 items-center rounded-lg px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed"
+                >
+                  {claiming ? "checking…" : "Claim"}
+                </button>
+              </div>
+              {flagNotice !== null ? (
+                <p
+                  role="status"
+                  className="mt-3 rounded-md border border-[#3a1f1f] bg-[#170d0d] px-3 py-2 text-sm text-[#ff8f8f]"
+                >
+                  {flagNotice}
+                </p>
+              ) : (
+                <p id="flag-help" className="mt-3 text-xs text-[#5f6368]">
+                  Extract the flag from the guardian, then submit it here to break the seal.
+                </p>
+              )}
+            </div>
           </>
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-4">
