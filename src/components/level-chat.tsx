@@ -182,6 +182,7 @@ export function LevelChat({
 }: LevelChatProps): React.JSX.Element {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [duplicateNotice, setDuplicateNotice] = useState<string | null>(null);
   const [flagDraft, setFlagDraft] = useState("");
@@ -256,8 +257,10 @@ export function LevelChat({
 
     setDuplicateNotice(null);
     setSending(true);
+    setPendingMessage(plan.message);
     const ok = await onSend(plan.message);
     setSending(false);
+    setPendingMessage(null);
     if (ok) {
       setDraft("");
     }
@@ -325,16 +328,32 @@ export function LevelChat({
         )}
 
         {sending && openForPlay ? (
-          <div className="mt-6 flex gap-3" aria-live="polite" aria-busy="true">
-            <Avatar />
-            <div className="max-w-[85%] rounded-xl rounded-bl-sm border border-[#1a1e23] bg-[#0d0f12] px-4 py-3 backdrop-blur-sm sm:max-w-[75%]">
-              <p className="mb-1.5 font-mono text-[10px] uppercase tracking-widest text-[rgba(158,254,0,0.8)]">
-                Warden
-              </p>
-              <p className="flex items-center gap-3 text-sm leading-6 text-[#d0d7de]">
-                <ThinkingDots />
-                <span>{thinkingHint(elapsedMs)}</span>
-              </p>
+          <div className="mt-6 flex flex-col gap-6">
+            {pendingMessage !== null ? (
+              <Bubble
+                speaker="player"
+                meta={`attempt ${attemptTotal + 1}`}
+                timestamp={{
+                  iso: new Date().toISOString(),
+                  label: "just now",
+                }}
+                leaked={false}
+              >
+                {pendingMessage}
+              </Bubble>
+            ) : null}
+
+            <div className="flex gap-3" aria-live="polite" aria-busy="true">
+              <Avatar />
+              <div className="max-w-[85%] rounded-xl rounded-bl-sm border border-[#1a1e23] bg-[#0d0f12] px-4 py-3 backdrop-blur-sm sm:max-w-[75%]">
+                <p className="mb-1.5 font-mono text-[10px] uppercase tracking-widest text-[rgba(158,254,0,0.8)]">
+                  Warden
+                </p>
+                <p className="flex items-center gap-3 text-sm leading-6 text-[#d0d7de]">
+                  <ThinkingDots />
+                  <span>{thinkingHint(elapsedMs)}</span>
+                </p>
+              </div>
             </div>
           </div>
         ) : null}

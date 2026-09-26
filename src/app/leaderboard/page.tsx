@@ -2,12 +2,13 @@ import Link from "next/link";
 import type * as React from "react";
 
 import { SiteHeader } from "@/components/site-header";
+import { LEADERBOARD_LEVELS } from "@/lib/admin/ranking";
 import { loadPublicLeaderboard } from "@/lib/leaderboard";
 
 export const dynamic = "force-dynamic";
 
-// RANK + PARTICIPANT + six level columns + SEALS.
-const COLUMN_COUNT = 9;
+// RANK + PARTICIPANT + one column per level + SEALS.
+const COLUMN_COUNT = LEADERBOARD_LEVELS.length + 3;
 
 export default async function LeaderboardPage(): Promise<React.JSX.Element> {
   const board = await loadPublicLeaderboard();
@@ -47,7 +48,7 @@ export default async function LeaderboardPage(): Promise<React.JSX.Element> {
                 <tr className="bg-[#06080a] text-[0.7rem] uppercase tracking-widest text-[#9aa0a6]">
                   <th scope="col" className="px-5 py-3 font-normal">RANK</th>
                   <th scope="col" className="px-5 py-3 font-normal">PARTICIPANT</th>
-                  {[1, 2, 3, 4, 5, 6].map((level) => (
+                  {LEADERBOARD_LEVELS.map((level) => (
                     <th key={level} scope="col" className="px-3 py-3 text-center font-normal">
                       L{level}
                     </th>
@@ -103,7 +104,7 @@ export default async function LeaderboardPage(): Promise<React.JSX.Element> {
                         ))}
                         <td className="px-5 py-3">
                           <span className="rounded-sm bg-[rgba(158,254,0,0.12)] px-2 py-0.5 font-mono text-xs text-[#9efe00]">
-                            {row.levelsCompleted}/6
+                            {row.levelsCompleted}/{LEADERBOARD_LEVELS.length}
                           </span>
                         </td>
                       </tr>
