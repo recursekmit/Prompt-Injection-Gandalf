@@ -7,7 +7,7 @@ export const MAX_NAME_LENGTH = 80;
  * letter-or-digit, `BD`, one more, `A0`, and three more — ten characters, matched
  * against the uppercased input.
  */
-export const ROLL_NUMBER_SHAPE = /^2[A-Z0-9]BD[A-Z0-9]A0[A-Z0-9]{3}$/;
+export const ROLL_NUMBER_SHAPE = /^2[A-Z0-9]BD[A-Z0-9]A[A-Z0-9]{4}$/;
 
 export type RollNumberResult =
   | { ok: true; rollNumber: string }
