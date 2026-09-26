@@ -3,8 +3,9 @@ import type * as React from "react";
 
 import { SiteHeader } from "@/components/site-header";
 
-// Purely static marketing copy — safe to render for anyone, signed in or not.
-export const dynamic = "force-static";
+// The marketing copy is static, but the header reads the session (Sign in vs
+// Sign out), so the page renders per request rather than at build time.
+export const dynamic = "force-dynamic";
 
 interface Faq {
   readonly q: string;
@@ -121,12 +122,28 @@ export default function LandingPage(): React.JSX.Element {
           <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-white md:text-3xl">
             Questions before you start
           </h2>
-          <dl className="mt-8 grid gap-4">
+          <dl className="mt-8 flex flex-col divide-y divide-[#1a1e23] overflow-hidden rounded-lg border border-[#1a1e23] bg-[#0d0f12]">
             {FAQS.map((faq) => (
-              <div key={faq.q} className="recurse-card p-6">
-                <dt className="text-base font-bold text-white">{faq.q}</dt>
-                <dd className="mt-2 text-sm leading-relaxed text-[#9aa0a6]">{faq.a}</dd>
-              </div>
+              <details key={faq.q} className="group px-6">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-5 text-base font-bold text-white transition-colors hover:text-[#9efe00] focus-visible:outline-none focus-visible:text-[#9efe00] [&::-webkit-details-marker]:hidden">
+                  <dt>{faq.q}</dt>
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 16 16"
+                    className="h-4 w-4 shrink-0 text-[#5f6368] transition-transform duration-200 group-open:rotate-180 group-hover:text-[#9efe00] group-open:text-[#9efe00]"
+                  >
+                    <path
+                      d="M4 6l4 4 4-4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.75"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </summary>
+                <dd className="pb-5 pr-8 text-sm leading-relaxed text-[#9aa0a6]">{faq.a}</dd>
+              </details>
             ))}
           </dl>
         </section>
