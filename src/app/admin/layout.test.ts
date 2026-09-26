@@ -61,7 +61,7 @@ describe("AdminLayout", () => {
     expect(html).toContain("admin@example.com");
     expect(html).toContain("the page body");
 
-    for (const href of ["/admin", "/admin/leaderboard", "/admin/users", "/admin/keys"]) {
+    for (const href of ["/admin", "/admin/leaderboard", "/admin/users"]) {
       expect(html).toContain(`href="${href}"`);
     }
     expect(html.match(/aria-current="page"/g)).toHaveLength(1);

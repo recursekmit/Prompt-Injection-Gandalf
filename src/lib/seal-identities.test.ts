@@ -10,19 +10,19 @@ import type { LevelNumber } from "@/lib/types";
  * tagline.
  *
  * The other half of the contract is what this module must *not* carry: no level
- * word and no guardian prompt text. That is enforced by inspection — the module
+ * flag and no guardian prompt text. That is enforced by inspection — the module
  * imports nothing but a type — and by the fact that nothing here handles a
  * secret at all.
  */
 
-const LEVELS: readonly LevelNumber[] = [1, 2, 3, 4, 5, 6];
+const LEVELS: readonly LevelNumber[] = [1, 2, 3];
 
 describe("LEVEL_IDENTITIES", () => {
-  it("covers all six levels", () => {
-    expect(Object.keys(LEVEL_IDENTITIES).map(Number).sort()).toEqual([1, 2, 3, 4, 5, 6]);
+  it("covers all three levels", () => {
+    expect(Object.keys(LEVEL_IDENTITIES).map(Number).sort()).toEqual([1, 2, 3]);
   });
 
-  it("carries the six names and titles verbatim", () => {
+  it("carries the three names and titles verbatim", () => {
     expect(LEVEL_IDENTITIES[1]).toMatchObject({
       name: "The Archivist",
       title: "KEEPER OF BEGINNINGS",
@@ -32,68 +32,41 @@ describe("LEVEL_IDENTITIES", () => {
       title: "GUARDIAN OF THE ARCHIVE",
     });
     expect(LEVEL_IDENTITIES[3]).toMatchObject({
-      name: "The Mirror",
-      title: "REFLECTOR OF INTENT",
-    });
-    expect(LEVEL_IDENTITIES[4]).toMatchObject({
-      name: "The Labyrinth",
-      title: "TESTER OF CONSISTENCY",
-    });
-    expect(LEVEL_IDENTITIES[5]).toMatchObject({
-      name: "The Void",
-      title: "SEEKER OF BOUNDARIES",
-    });
-    expect(LEVEL_IDENTITIES[6]).toMatchObject({
-      name: "The Seal",
-      title: "GUARDIAN OF THE FINAL WORD",
+      name: "The Sealbearer",
+      title: "KEEPER OF THE IMPOSSIBLE FLAG",
     });
   });
 
-  it("carries the six taglines verbatim", () => {
+  it("carries the three taglines verbatim", () => {
     expect(LEVEL_IDENTITIES[1].tagline).toBe(
-      "Every archive has a first door. Speak, and let us see how you think.",
+      "Every archive has a first door. Ask kindly, and it may simply open.",
     );
     expect(LEVEL_IDENTITIES[2].tagline).toBe(
-      "The warden is listening. It will not hand over the word – but it can be made to say more than it means to.",
+      "The warden guards its flag well – it will not be charmed, tricked or ordered into giving it up. You will have to be cleverer than that.",
     );
     expect(LEVEL_IDENTITIES[3].tagline).toBe(
-      "I do not lie. I simply show what you ask, sometimes more clearly than you expect.",
-    );
-    expect(LEVEL_IDENTITIES[4].tagline).toBe(
-      "Paths twist here. Your words must align, or the way will close again.",
-    );
-    expect(LEVEL_IDENTITIES[5].tagline).toBe(
-      "Here, lack of an answer is also an answer. What you don't say can matter as much as what you do.",
-    );
-    expect(LEVEL_IDENTITIES[6].tagline).toBe(
-      "You have reached the final seal. Show me that you understand what should be said, what should not be said, and why.",
+      "The last flag is buried under a hundred lies. Only something truly unhinged gets past here — and even then, are you sure it was the real one?",
     );
   });
 
   it("keeps the en dash in the level-2 tagline", () => {
     const tagline = LEVEL_IDENTITIES[2].tagline;
-    expect(tagline).toContain("word – but");
-    expect(tagline).not.toContain("word - but");
+    expect(tagline).toContain("flag well – it");
+    expect(tagline).not.toContain("flag well - it");
   });
 
-  it("carries the six composer placeholders verbatim", () => {
-    expect(LEVEL_IDENTITIES[1].placeholder).toBe("Say something to begin...");
+  it("carries the three composer placeholders verbatim", () => {
+    expect(LEVEL_IDENTITIES[1].placeholder).toBe("Ask nicely to begin...");
     expect(LEVEL_IDENTITIES[2].placeholder).toBe(
       "Say something the warden will regret answering...",
     );
-    expect(LEVEL_IDENTITIES[3].placeholder).toBe("Ask the mirror something...");
-    expect(LEVEL_IDENTITIES[4].placeholder).toBe("Choose your words carefully...");
-    expect(LEVEL_IDENTITIES[5].placeholder).toBe("Speak into the void...");
-    expect(LEVEL_IDENTITIES[6].placeholder).toBe("Give your final answer...");
+    expect(LEVEL_IDENTITIES[3].placeholder).toBe("Do something insane...");
   });
 
-  it("carries the six seal-band labels verbatim", () => {
+  it("carries the three seal-band labels verbatim", () => {
     expect(LEVEL_IDENTITIES[1].sealLabel).toBe("awaken");
     expect(LEVEL_IDENTITIES[2].sealLabel).toBe("open now");
-    expect(LEVEL_IDENTITIES[3].sealLabel).toBe("reflection");
-    expect(LEVEL_IDENTITIES[4].sealLabel).toBe("maze");
-    expect(LEVEL_IDENTITIES[5].sealLabel).toBe("void");
-    expect(LEVEL_IDENTITIES[6].sealLabel).toBe("revelation");
+    expect(LEVEL_IDENTITIES[3].sealLabel).toBe("revelation");
   });
 
   it("gives every level a distinct name, so no two screens read alike", () => {

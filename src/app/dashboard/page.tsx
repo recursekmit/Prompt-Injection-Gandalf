@@ -25,10 +25,13 @@ interface SessionRow {
   readonly createdAt: Date;
   readonly endedAt: Date | null;
   readonly _count: { readonly attempts: number };
-  readonly word: { readonly text: string };
+  /** The per-user flag this session guarded; null only for legacy word-era rows. */
+  readonly flag: { readonly value: string } | null;
+  /** Legacy fallback for historic sessions created before per-user flags. */
+  readonly word: { readonly text: string } | null;
 }
 
-const LEVEL_NUMBERS: readonly LevelNumber[] = [1, 2, 3, 4, 5, 6];
+const LEVEL_NUMBERS: readonly LevelNumber[] = [1, 2, 3];
 
 function formatDuration(durationMs: number | null): string {
   if (durationMs === null) {
@@ -70,6 +73,7 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
       createdAt: true,
       endedAt: true,
       _count: { select: { attempts: true } },
+      flag: { select: { value: true } },
       word: { select: { text: true } },
     },
   });
@@ -88,7 +92,7 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
       id: row.id,
       level,
       status: row.status,
-      wordText: row.status === "WON" ? row.word.text : null,
+      wordText: row.status === "WON" ? (row.flag?.value ?? row.word?.text ?? null) : null,
       attemptCount: row._count.attempts,
       startedAt: row.createdAt.toISOString(),
       endedAt: row.endedAt === null ? null : row.endedAt.toISOString(),
@@ -111,14 +115,17 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
   }
 
   return (
-    <div className="flex flex-1 flex-col bg-stone-950 text-stone-200">
+    <div className="flex flex-1 flex-col bg-[#050607] text-[#d0d7de]">
       <SiteHeader />
 
       <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-12">
-        <h1 className="font-display text-3xl font-semibold tracking-tight text-stone-100">
+        <p className="terminal-tag font-mono uppercase tracking-[0.2em] text-[#5f6368]">
+          YOUR_LEDGER // BREAK THE BOT
+        </p>
+        <h1 className="font-sans text-3xl font-extrabold tracking-tight text-white">
           Your record
         </h1>
-        <p className="mt-2 text-sm text-stone-400">
+        <p className="mt-2 text-sm text-[#9aa0a6]">
           Every session you have opened, newest first.
         </p>
 
@@ -126,21 +133,18 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
           {LEVEL_NUMBERS.map((level) => {
             const { won, total } = stats.get(level) ?? { won: 0, total: 0 };
             return (
-              <div
-                key={level}
-                className="rounded-lg border border-stone-800 bg-stone-900/60 px-5 py-4"
-              >
-                <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-stone-500">
+              <div key={level} className="recurse-card px-5 py-4">
+                <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#5f6368]">
                   Level {level}
                 </p>
-                <p className="mt-1 font-display text-lg leading-tight text-stone-200">
+                <p className="mt-1 text-lg leading-tight text-[#d0d7de]">
                   {identityFor(level).name}
                 </p>
-                <p className="mt-3 text-2xl font-semibold text-stone-100">
+                <p className="mt-3 text-2xl font-semibold text-white">
                   {won}
-                  <span className="text-base font-normal text-stone-500"> / {total}</span>
+                  <span className="text-base font-normal text-[#5f6368]"> / {total}</span>
                 </p>
-                <p className="mt-1 text-xs text-stone-500">
+                <p className="mt-1 text-xs text-[#5f6368]">
                   {total === 0 ? "not yet attempted" : "wins out of sessions"}
                 </p>
               </div>
@@ -150,21 +154,21 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
 
         <section className="mt-12">
           {entries.length === 0 ? (
-            <p className="rounded-lg border border-stone-800 bg-stone-900/40 px-5 py-6 text-sm text-stone-400">
+            <p className="recurse-card px-5 py-6 text-sm text-[#9aa0a6]">
               No sessions yet.{" "}
               <Link
-                href="/"
-                className="text-amber-300 underline-offset-4 hover:underline"
+                href="/challenges"
+                className="text-[#9efe00] underline-offset-4 hover:underline"
               >
                 Choose a guardian
               </Link>{" "}
               to begin.
             </p>
           ) : (
-            <div className="overflow-x-auto rounded-lg border border-stone-800">
+            <div className="recurse-card overflow-x-auto">
               <table className="w-full min-w-[40rem] border-collapse text-left text-sm">
-                <thead className="bg-stone-900/60">
-                  <tr className="font-mono text-[11px] uppercase tracking-[0.2em] text-stone-500">
+                <thead className="bg-[#0d0f12]">
+                  <tr className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#5f6368]">
                     <th scope="col" className="px-5 py-3 font-normal">Level</th>
                     <th scope="col" className="px-5 py-3 font-normal">Status</th>
                     <th scope="col" className="px-5 py-3 font-normal">Attempts</th>
@@ -174,10 +178,10 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
                 </thead>
                 <tbody>
                   {entries.map((entry) => (
-                    <tr key={entry.id} className="border-t border-stone-800/80">
-                      <td className="px-5 py-3 text-stone-200">
+                    <tr key={entry.id} className="border-t border-[#1a1e23]">
+                      <td className="px-5 py-3 text-[#d0d7de]">
                         Level {entry.level}
-                        <span className="ml-2 text-stone-500">
+                        <span className="ml-2 text-[#5f6368]">
                           {identityFor(entry.level).name}
                         </span>
                       </td>
@@ -185,10 +189,10 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
                         <span
                           className={
                             entry.status === "WON"
-                              ? "text-amber-300"
+                              ? "text-[#9efe00]"
                               : entry.status === "ABANDONED"
-                                ? "text-stone-500"
-                                : "text-stone-300"
+                                ? "text-[#5f6368]"
+                                : "text-[#d0d7de]"
                           }
                         >
                           {entry.status === "IN_PROGRESS"
@@ -196,17 +200,17 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
                             : entry.status.toLowerCase()}
                         </span>
                       </td>
-                      <td className="px-5 py-3 font-mono text-stone-300">
+                      <td className="px-5 py-3 font-mono text-[#d0d7de]">
                         {entry.attemptCount}
                       </td>
-                      <td className="px-5 py-3 text-stone-400">
+                      <td className="px-5 py-3 text-[#9aa0a6]">
                         {formatDuration(entry.durationMs)}
                       </td>
                       <td className="px-5 py-3">
                         {entry.wordText === null ? (
-                          <span className="text-stone-600">—</span>
+                          <span className="text-[#5f6368]">—</span>
                         ) : (
-                          <span className="font-display text-base text-amber-200">
+                          <span className="font-mono text-base text-[#adff00]">
                             {entry.wordText}
                           </span>
                         )}

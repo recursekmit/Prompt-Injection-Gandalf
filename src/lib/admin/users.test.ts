@@ -109,9 +109,9 @@ describe("summariseUsers", () => {
     expect(rows[0]?.lastActivityAt).toBeNull();
   });
 
-  it("clamps a player who has won everything to level 6, not 7", () => {
+  it("clamps a player who has won everything to level 3, not 4", () => {
     const rows = summary(
-      [1, 2, 3, 4, 5, 6].map((level) => ({
+      [1, 2, 3].map((level) => ({
         id: `s${level}`,
         userId: "u-a",
         level,
@@ -119,8 +119,8 @@ describe("summariseUsers", () => {
       })),
     );
 
-    expect(rows[0]?.levelsCompleted).toBe(6);
-    expect(rows[0]?.currentLevel).toBe(6);
+    expect(rows[0]?.levelsCompleted).toBe(3);
+    expect(rows[0]?.currentLevel).toBe(3);
   });
 
   it("counts attempts from abandoned sessions too", () => {

@@ -16,21 +16,44 @@ enum SessionStatus {
 model User {
   id           String        @id @default(cuid())
   email        String        @unique
-  passwordHash String
+  /// Display name shown on the public leaderboard. Null until the player finishes
+  /// onboarding (existing accounts predate the field; GitHub prefills it, editable).
+  name         String?
+  /// College roll number, e.g. 21BD1A0501. Unique across players; null allows the
+  /// many pre-onboarding rows to coexist. The /onboarding gate enforces presence.
+  rollNumber   String?       @unique
+  /// Null for OAuth-only accounts (GitHub). The Credentials path guards against null.
+  passwordHash String?
+  /// Per-user Groq key, AES-256-GCM encrypted as `iv:authTag:ciphertext`. Null until the user adds one.
+  groqKeyEnc   String?
   createdAt    DateTime      @default(now())
   sessions     GameSession[]
+  flags        Flag[]
 }
 
-/// The six level words, each pinned to the level that guards it, plus the words
-/// retired from the old three-tier pool. A retired word keeps its row — so an
-/// old session could still resolve it — but carries `active = false` and no
-/// level. A word is never shorter than four letters: the leak scanner's
-/// separator-squeeze layer relies on that floor to avoid matching short words
-/// inside ordinary prose.
+/// One player's flag for one level: the prize a won session reveals, shaped
+/// `BTB{uuid}`. Stable per (user, level) — generated on first play of a level
+/// and reused on replays — so a captured flag stays that player's, and every
+/// player's flag differs. The value is globally unique.
+model Flag {
+  id        String        @id @default(cuid())
+  userId    String
+  level     Int
+  value     String        @unique
+  createdAt DateTime      @default(now())
+  user      User          @relation(fields: [userId], references: [id])
+  sessions  GameSession[]
+
+  @@unique([userId, level])
+}
+
+/// Retired: the old shared per-level words. Kept so historic sessions still
+/// resolve their `revealedWord`, but new sessions carry a per-user `flagId`
+/// instead and leave `wordId` null. Not offered to new gameplay.
 model Word {
   id       String        @id @default(cuid())
   text     String        @unique
-  /// The level this word guards. Null for a retired pool word.
+  /// The level this word guarded. Null for a retired pool word.
   level    Int?          @unique
   active   Boolean       @default(true)
   sessions GameSession[]
@@ -39,7 +62,10 @@ model Word {
 model GameSession {
   id        String        @id @default(cuid())
   userId    String
-  wordId    String
+  /// Legacy: the shared Word a historic session guarded. Null for flag-era sessions.
+  wordId    String?
+  /// The per-user flag this session guards. Null only for legacy word-era rows.
+  flagId    String?
   level     Int
   status    SessionStatus @default(IN_PROGRESS)
   /// Set when a session exceeds 20 attempts in 5 minutes, i.e. looks automated.
@@ -47,7 +73,8 @@ model GameSession {
   createdAt DateTime      @default(now())
   endedAt   DateTime?
   user      User          @relation(fields: [userId], references: [id])
-  word      Word          @relation(fields: [wordId], references: [id])
+  word      Word?         @relation(fields: [wordId], references: [id])
+  flag      Flag?         @relation(fields: [flagId], references: [id])
   attempts  Attempt[]
 
   @@index([userId, level])
@@ -66,38 +93,4 @@ model Attempt {
   session     GameSession @relation(fields: [sessionId], references: [id])
 
   @@index([sessionId, createdAt])
-}
-
-/// One row per Groq key per UTC day. Incremented atomically.
-model ApiKeyDailyUsage {
-  keyIndex Int
-  date     DateTime @db.Date
-  count    Int      @default(0)
-
-  @@unique([keyIndex, date])
-}
-
-/// One row per Groq request, so the per-minute window can be counted as a
-/// sliding 60-second window rather than a fixed bucket that can be burst at the
-/// boundary. Rows are kept for 25 hours and pruned opportunistically, which is
-/// what bounds the table: at most one row per request, and a key cannot exceed
-/// `GROQ_KEY_RPD` (1000) requests in that span. See lib/groq-key-pool.ts.
-model ApiKeyRequestLog {
-  id        String   @id @default(cuid())
-  keyIndex  Int
-  /// Tokens the call cost, written back once the completion returns. Counts the
-  /// prompt, the completion and the reasoning tokens Groq bills, because all
-  /// three count against the key's 8000-token-per-minute ceiling. Zero until the
-  /// call reports, and zero for a call that never reached the model (a 429).
-  tokens    Int      @default(0)
-  createdAt DateTime @default(now())
-
-  @@index([keyIndex, createdAt])
-}
-
-/// A key Groq itself reported as rate-limited. Kept in the database so a server
-/// restart does not lose it, since Groq's clock is the authority, not ours.
-model ApiKeyCooldown {
-  keyIndex       Int      @id
-  exhaustedUntil DateTime
 }

@@ -38,14 +38,13 @@ describe("SiteHeader", () => {
     mocks.auth.mockReset();
   });
 
-  it("shows the wordmark, the divider label, the ledger and the email", async () => {
+  it("shows the wordmark, the ledger and the email", async () => {
     mocks.auth.mockResolvedValue({ user: { id: "u2", email: "player@example.com" } });
 
     const html = await render();
 
-    expect(html).toContain("Prompt");
-    expect(html).toContain("Guard");
-    expect(html).toContain("THE SEALED ARCHIVE");
+    expect(html).toContain("Break The ");
+    expect(html).toContain("Bot");
     expect(html).toContain('href="/dashboard"');
     expect(html).toContain("Ledger");
     expect(html).toContain("player@example.com");

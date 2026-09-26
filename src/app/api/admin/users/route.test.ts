@@ -47,7 +47,7 @@ vi.mock("@/lib/admin/users", async (importOriginal) => {
 // without a `DATABASE_URL` is not what this suite is about.
 vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 vi.mock("@/lib/env", () => ({
-  env: { adminEmails: ["admin@example.com"], groqPoolTpd: 200_000 },
+  env: { adminEmails: ["admin@example.com"] },
 }));
 
 const { AdminUsersError } = await import("@/lib/admin/users");

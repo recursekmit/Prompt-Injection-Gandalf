@@ -4,8 +4,9 @@
  * response shape is a type error at both ends.
  *
  * Nothing here carries the secret word except `revealedWord`, which is present
- * only on a winning attempt. While a session is IN_PROGRESS the client is not
- * told the word: otherwise it sits in the network tab and the game is over.
+ * only on a won session (from a correct flag submission). While a session is
+ * IN_PROGRESS the client is not told the word: otherwise it sits in the network
+ * tab and the game is over.
  */
 
 // Type-only, and deliberately so: `@/lib/guardian/levels` is a server module
@@ -70,8 +71,19 @@ export type LevelArtwork = Readonly<Partial<Record<LevelNumber, string>>>;
 export interface AttemptResponse {
   attempt: AttemptDto;
   attemptCount: number;
+}
+
+/**
+ * The reply to an explicit flag submission. A level is won only here, never by
+ * the guardian merely echoing the flag in chat, so `session` and `revealedWord`
+ * are present exactly when `correct` is true.
+ */
+export interface SubmitFlagResponse {
+  correct: boolean;
   status: SessionStatus;
-  /** Present only when this attempt leaked the word. */
+  /** The now-won session, present only on a correct submission. */
+  session: SessionDto | null;
+  /** The real flag, echoed back only on a correct submission. */
   revealedWord: string | null;
 }
 
@@ -118,9 +130,28 @@ export interface LeaderboardRow {
   /** Position on the board, 1-based. */
   rank: number;
   email: string;
+  /** Public display name, null for accounts that predate onboarding. */
+  name: string | null;
+  /** College roll number, null for accounts that predate onboarding. */
+  rollNumber: string | null;
   /** Distinct levels won, 0 to 6. A level won twice is one level. */
   levelsCompleted: number;
   /** Every attempt this player has made, at any level. */
+  totalAttempts: number;
+  lastWinAt: string | null;
+  levels: LeaderboardLevelCell[];
+}
+
+/**
+ * One row of the PUBLIC leaderboard. Deliberately carries no email: this shape
+ * is what a logged-out visitor's browser receives, so a player's email must not
+ * be one field away from it. Identity is name + roll number only.
+ */
+export interface PublicLeaderboardRow {
+  rank: number;
+  name: string | null;
+  rollNumber: string | null;
+  levelsCompleted: number;
   totalAttempts: number;
   lastWinAt: string | null;
   levels: LeaderboardLevelCell[];
@@ -164,6 +195,14 @@ export interface LeaderboardResponse {
   /** Players with no attempts, left off the board. */
   playersExcluded: number;
   /** Every account, including those excluded. */
+  playersTotal: number;
+}
+
+/** The public board's payload: email-free rows plus the level summary. */
+export interface PublicLeaderboardResponse {
+  rows: PublicLeaderboardRow[];
+  summary: LeaderboardLevelSummary[];
+  playersExcluded: number;
   playersTotal: number;
 }
 

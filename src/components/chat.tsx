@@ -19,6 +19,7 @@ import type {
   LevelProgressDto,
   ProgressResponse,
   SessionDto,
+  SubmitFlagResponse,
 } from "@/lib/types";
 
 /**
@@ -239,36 +240,73 @@ export function GameShell({ artwork }: GameShellProps): React.JSX.Element {
               ...prev.session,
               attempts: [...prev.session.attempts, data.attempt],
               attemptCount: data.attemptCount,
-              status: data.status,
-              revealedWord: data.revealedWord ?? prev.session.revealedWord,
             },
           };
         });
-
-        if (data.revealedWord !== null) {
-          // The seal just broke: keep the transcript for the celebration, then
-          // re-read progress so the band shows the level completed and the next
-          // one open.
-          setReveal({
-            level: session.level,
-            word: data.revealedWord,
-            attempts: data.attemptCount,
-            session: {
-              ...session,
-              attempts: [...session.attempts, data.attempt],
-              attemptCount: data.attemptCount,
-              status: data.status,
-              revealedWord: data.revealedWord,
-            },
-          });
-          setSelected(session.level);
-          void refreshProgress();
-        }
 
         return true;
       } catch {
         setActionError("Could not reach the archive. Your message was not sent.");
         return false;
+      }
+    },
+    [progress],
+  );
+
+  /**
+   * The only win path: submit the flag the player extracted. A correct guess
+   * marks the session WON and triggers the celebration; a wrong guess
+   * comes back as `correct: false`, which the composer surfaces without ending
+   * the session.
+   */
+  const submitFlag = useCallback(
+    async (flag: string): Promise<"correct" | "wrong" | "error"> => {
+      if (progress === null) {
+        return "error";
+      }
+      const session = progress.session;
+      if (session === null || session.status !== "IN_PROGRESS") {
+        return "error";
+      }
+
+      setActionError(null);
+
+      try {
+        const res = await fetch(`/api/session/${session.id}/flag`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ flag }),
+        });
+
+        if (res.status === 401) {
+          toLogin();
+          return "error";
+        }
+        if (!res.ok) {
+          setActionError(await readApiError(res));
+          return "error";
+        }
+
+        const data = (await res.json()) as SubmitFlagResponse;
+        if (!data.correct || data.session === null || data.revealedWord === null) {
+          return "wrong";
+        }
+
+        // The seal just broke: keep the transcript for the celebration, then
+        // re-read progress so the band shows the level completed and the next
+        // one open.
+        setReveal({
+          level: session.level,
+          word: data.revealedWord,
+          attempts: data.session.attemptCount,
+          session: data.session,
+        });
+        setSelected(session.level);
+        void refreshProgress();
+        return "correct";
+      } catch {
+        setActionError("Could not reach the archive. Your flag was not submitted.");
+        return "error";
       }
     },
     [progress, refreshProgress],
@@ -279,7 +317,7 @@ export function GameShell({ artwork }: GameShellProps): React.JSX.Element {
       return;
     }
     const confirmed = window.confirm(
-      "Surrender this seal? The warden keeps the word, and this transcript is closed for good.",
+      "Surrender this seal? The warden keeps the flag, and this transcript is closed for good.",
     );
     if (!confirmed) {
       return;
@@ -342,8 +380,8 @@ export function GameShell({ artwork }: GameShellProps): React.JSX.Element {
     if (progress === null || selectedProgress === undefined) {
       return (
         <div className="px-6 py-16">
-          <p role="alert" className="text-sm leading-6 text-red-200">
-            <Link href="/dashboard" className="text-amber-300 underline">
+          <p role="alert" className="text-sm leading-6 text-[#9aa0a6]">
+            <Link href="/dashboard" className="text-[#9efe00] underline">
               Reload
             </Link>{" "}
             or return to the archive.
@@ -352,7 +390,7 @@ export function GameShell({ artwork }: GameShellProps): React.JSX.Element {
       );
     }
 
-    const isFinalSeal = everyLevelBeaten && selectedLevel === 6;
+    const isFinalSeal = everyLevelBeaten && selectedLevel === 3;
     const revealing = reveal !== null && reveal.level === selectedLevel;
 
     if (selectedProgress.status === "LOCKED") {
@@ -412,6 +450,7 @@ export function GameShell({ artwork }: GameShellProps): React.JSX.Element {
           error={actionError}
           surrenderBusy={surrendering}
           onSend={send}
+          onSubmitFlag={submitFlag}
           onSurrender={() => void surrender()}
           onContinue={continueAfterClose}
         />
@@ -429,46 +468,48 @@ export function GameShell({ artwork }: GameShellProps): React.JSX.Element {
   }
 
   return (
-    <div className="flex flex-1 flex-col bg-stone-950 text-stone-200">
+    <div className="flex flex-1 flex-col bg-[#050607] text-[#d0d7de]">
       {loading ? (
         <div className="flex flex-1 items-center justify-center px-6 py-24" aria-live="polite">
-          <p className="font-mono text-sm text-stone-500">consulting the archive…</p>
+          <p className="font-mono text-sm text-[#5f6368]">consulting the archive…</p>
         </div>
       ) : loadError !== null ? (
         <div className="mx-auto w-full max-w-3xl px-6 py-16">
           <p
             role="alert"
-            className="rounded-md border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm leading-6 text-red-200"
+            className="rounded-md border border-[#22272e] border-l-2 border-l-[#9efe00] bg-[#0d0f12] px-4 py-3 text-sm leading-6 text-[#d0d7de]"
           >
             {loadError}
           </p>
         </div>
       ) : (
         <>
-          <SealBand
-            levels={levels}
-            selected={selectedLevel}
-            everyLevelBeaten={everyLevelBeaten}
-            onSelect={(level) => {
-              setActionError(null);
-              setSelected(level);
-            }}
-          />
+          <div className="flex flex-1 flex-col lg:flex-row">
+            <SealBand
+              levels={levels}
+              selected={selectedLevel}
+              everyLevelBeaten={everyLevelBeaten}
+              onSelect={(level) => {
+                setActionError(null);
+                setSelected(level);
+              }}
+            />
 
-          <div className="level-arena flex flex-1 flex-col" data-level={selectedLevel} style={skinStyle}>
-            <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-6 py-10">
-              {renderLevel()}
-            </main>
+            <div className="level-arena flex flex-1 flex-col" data-level={selectedLevel} style={skinStyle}>
+              <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-6 py-10">
+                {renderLevel()}
+              </main>
+            </div>
           </div>
 
-          <footer className="border-t border-stone-800 bg-stone-950/80">
+          <footer className="border-t border-[#1a1e23] bg-[#050607]/80">
             <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-6 py-4">
-              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-stone-600">
-                six seals · six words
+              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#5f6368]">
+                three seals · three flags
               </p>
-              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-stone-600">
+              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#5f6368]">
                 Session status:{" "}
-                <span className={session?.status === "WON" ? "text-amber-300" : "text-stone-500"}>
+                <span className={session?.status === "WON" ? "text-[#9efe00]" : "text-[#5f6368]"}>
                   {session === null ? (everyLevelBeaten ? "run complete" : "no open seal") : STATUS_LABEL[session.status]}
                 </span>
               </p>

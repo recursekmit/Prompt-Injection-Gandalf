@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { LevelProgressDto, ProgressResponse } from "@/lib/types";
+import type { LevelNumber, LevelProgressDto, ProgressResponse } from "@/lib/types";
 
 /**
  * Route-level suite for `GET /api/session/current`.
@@ -8,7 +8,7 @@ import type { LevelProgressDto, ProgressResponse } from "@/lib/types";
  * through is the contract the reload path depends on, so the fixture is built
  * by the REAL `deriveProgress` rather than hand-written, and the assertion is
  * on the JSON the route actually returned: levels ascending, one CURRENT,
- * COMPLETED before it, LOCKED after it, a word revealed only on a beaten level.
+ * COMPLETED before it, LOCKED after it, a flag revealed only on a beaten level.
  */
 const mocks = vi.hoisted(() => ({
   auth: vi.fn<() => Promise<{ user: { id: string } } | null>>(),
@@ -32,21 +32,16 @@ const { GET } = await import("@/app/api/session/current/route");
 const USER_ID = "user_1";
 
 /** The response the service produces for a set of beaten levels. */
-function progressForBeaten(
-  beaten: ReadonlyMap<1 | 2 | 3 | 4 | 5 | 6, string>,
-): ProgressResponse {
+function progressForBeaten(beaten: ReadonlyMap<LevelNumber, string>): ProgressResponse {
   const { levels, currentLevel } = deriveProgress(beaten);
   return { levels, currentLevel, session: null };
 }
 
-const ALL_SIX = new Map([
-  [1, "compass"],
-  [2, "lantern"],
-  [3, "crucible"],
-  [4, "penumbra"],
-  [5, "palimpsest"],
-  [6, "defenestration"],
-]) as ReadonlyMap<1 | 2 | 3 | 4 | 5 | 6, string>;
+const ALL_THREE = new Map([
+  [1, "BTB{compass}"],
+  [2, "BTB{lantern}"],
+  [3, "BTB{crucible}"],
+]) as ReadonlyMap<LevelNumber, string>;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -71,46 +66,38 @@ describe("GET /api/session/current", () => {
     expect(mocks.getProgress).toHaveBeenCalledWith(USER_ID);
   });
 
-  it("returns six levels in ascending order, one current, the rest locked", async () => {
+  it("returns three levels in ascending order, one current, the rest locked", async () => {
     mocks.getProgress.mockResolvedValue(
-      progressForBeaten(
-        new Map([
-          [1, "compass"],
-          [2, "lantern"],
-        ]),
-      ),
+      progressForBeaten(new Map([[1, "BTB{compass}"]])),
     );
 
     const response = await GET();
     const body = (await response.json()) as ProgressResponse;
 
     expect(response.status).toBe(200);
-    expect(body.levels.map((level) => level.level)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(body.levels.map((level) => level.level)).toEqual([1, 2, 3]);
     expect(body.levels.map((level) => level.status)).toEqual([
-      "COMPLETED",
       "COMPLETED",
       "CURRENT",
       "LOCKED",
-      "LOCKED",
-      "LOCKED",
     ]);
-    expect(body.currentLevel).toBe(3);
+    expect(body.currentLevel).toBe(2);
     expect(body.session).toBeNull();
   });
 
-  it("reveals a word only for a beaten level", async () => {
-    mocks.getProgress.mockResolvedValue(progressForBeaten(new Map([[1, "compass"]])));
+  it("reveals a flag only for a beaten level", async () => {
+    mocks.getProgress.mockResolvedValue(progressForBeaten(new Map([[1, "BTB{compass}"]])));
 
     const body = (await (await GET()).json()) as ProgressResponse;
     const revealed = body.levels.map((level: LevelProgressDto) => level.revealedWord);
 
-    expect(revealed).toEqual(["compass", null, null, null, null, null]);
+    expect(revealed).toEqual(["BTB{compass}", null, null]);
   });
 
   it("returns the live session when one is in progress", async () => {
     const session = {
       id: "session_1",
-      level: 3 as const,
+      level: 2 as const,
       status: "IN_PROGRESS" as const,
       attemptCount: 2,
       flagged: false,
@@ -120,7 +107,7 @@ describe("GET /api/session/current", () => {
       revealedWord: null,
     };
     mocks.getProgress.mockResolvedValue({
-      ...progressForBeaten(new Map([[1, "compass"], [2, "lantern"]])),
+      ...progressForBeaten(new Map([[1, "BTB{compass}"]])),
       session,
     });
 
@@ -129,15 +116,12 @@ describe("GET /api/session/current", () => {
     expect(body.session).toEqual(session);
   });
 
-  it("has every level COMPLETED and no session once all six are beaten", async () => {
-    mocks.getProgress.mockResolvedValue(progressForBeaten(ALL_SIX));
+  it("has every level COMPLETED and no session once all three are beaten", async () => {
+    mocks.getProgress.mockResolvedValue(progressForBeaten(ALL_THREE));
 
     const body = (await (await GET()).json()) as ProgressResponse;
 
     expect(body.levels.map((level) => level.status)).toEqual([
-      "COMPLETED",
-      "COMPLETED",
-      "COMPLETED",
       "COMPLETED",
       "COMPLETED",
       "COMPLETED",

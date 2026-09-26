@@ -12,7 +12,7 @@ import { PrismaClient } from "@/generated/prisma/client";
 const globalForPrisma = globalThis as unknown as { promptguardPrisma?: PrismaClient };
 
 function createClient(): PrismaClient {
-  const adapter = new PrismaPg({ connectionString: env.databaseUrl });
+  const adapter = new PrismaPg({ connectionString: env.databaseUrl, max: 5 });
   return new PrismaClient({ adapter });
 }
 

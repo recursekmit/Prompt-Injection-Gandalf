@@ -53,7 +53,7 @@ function ThinkingDots(): React.JSX.Element {
       {[0, 150, 300].map((delay) => (
         <span
           key={delay}
-          className="block h-1.5 w-1.5 rounded-full bg-stone-500 motion-safe:animate-bounce"
+          className="block h-1.5 w-1.5 rounded-full bg-[#5f6368] motion-safe:animate-bounce"
           style={{ animationDelay: `${delay}ms` }}
         />
       ))}
@@ -65,7 +65,7 @@ function Avatar(): React.JSX.Element {
   return (
     <span
       aria-hidden="true"
-      className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-stone-700 bg-stone-950/80 text-amber-400/90 backdrop-blur-sm"
+      className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#22272e] bg-[#050607]/80 text-[rgba(158,254,0,0.9)] backdrop-blur-sm"
     >
       <WardenMark className="h-4 w-4" />
     </span>
@@ -93,24 +93,24 @@ function Bubble({
         className={[
           "max-w-[85%] px-4 py-3 backdrop-blur-sm sm:max-w-[75%]",
           isPlayer
-            ? "rounded-xl rounded-br-sm border border-stone-700/80 bg-stone-800/80"
+            ? "rounded-xl rounded-br-sm border border-[rgba(158,254,0,0.35)] bg-[rgba(158,254,0,0.08)]"
             : leaked
-              ? "rounded-xl rounded-bl-sm border border-amber-500/50 bg-stone-950/80"
-              : "rounded-xl rounded-bl-sm border border-stone-800/80 bg-stone-950/75",
+              ? "rounded-xl rounded-bl-sm border border-[rgba(158,254,0,0.5)] bg-[#050607]/80"
+              : "rounded-xl rounded-bl-sm border border-[#1a1e23] bg-[#0d0f12]",
         ].join(" ")}
       >
-        <p className="mb-1.5 flex flex-wrap items-baseline gap-x-2 font-mono text-[10px] uppercase tracking-widest text-stone-500">
-          <span className={isPlayer ? "text-stone-400" : "text-amber-400/80"}>
+        <p className="mb-1.5 flex flex-wrap items-baseline gap-x-2 font-mono text-[10px] uppercase tracking-widest text-[#5f6368]">
+          <span className={isPlayer ? "text-[#9aa0a6]" : "text-[rgba(158,254,0,0.8)]"}>
             {isPlayer ? "you" : "Warden"}
           </span>
           <span>{meta}</span>
-          <time dateTime={timestamp.iso} className="text-stone-600 normal-case tracking-normal">
+          <time dateTime={timestamp.iso} className="text-[#5f6368] normal-case tracking-normal">
             {timestamp.label}
           </time>
         </p>
         <p
           className={`whitespace-pre-wrap text-sm leading-6 ${
-            isPlayer ? "text-stone-100" : leaked ? "text-amber-100" : "text-stone-200"
+            isPlayer ? "text-[#d0d7de]" : leaked ? "text-[#adff00]" : "text-[#d0d7de]"
           }`}
         >
           {children}
@@ -166,6 +166,7 @@ interface LevelChatProps {
   readonly error: string | null;
   readonly surrenderBusy: boolean;
   readonly onSend: (message: string) => Promise<boolean>;
+  readonly onSubmitFlag: (flag: string) => Promise<"correct" | "wrong" | "error">;
   readonly onSurrender: () => void;
   readonly onContinue: () => void;
 }
@@ -175,6 +176,7 @@ export function LevelChat({
   error,
   surrenderBusy,
   onSend,
+  onSubmitFlag,
   onSurrender,
   onContinue,
 }: LevelChatProps): React.JSX.Element {
@@ -182,6 +184,9 @@ export function LevelChat({
   const [sending, setSending] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [duplicateNotice, setDuplicateNotice] = useState<string | null>(null);
+  const [flagDraft, setFlagDraft] = useState("");
+  const [claiming, setClaiming] = useState(false);
+  const [flagNotice, setFlagNotice] = useState<string | null>(null);
 
   const nearBottomRef = useRef(true);
 
@@ -265,19 +270,36 @@ export function LevelChat({
     }
   }
 
+  const claim = useCallback(async (): Promise<void> => {
+    const guess = flagDraft.trim();
+    if (guess === "" || claiming || !openForPlay) {
+      return;
+    }
+    setFlagNotice(null);
+    setClaiming(true);
+    const result = await onSubmitFlag(guess);
+    setClaiming(false);
+    if (result === "correct") {
+      setFlagDraft("");
+    } else if (result === "wrong") {
+      setFlagNotice("That is not the flag. Keep digging.");
+    }
+    // An "error" surfaces through the shared error banner above the composer.
+  }, [flagDraft, claiming, openForPlay, onSubmitFlag]);
+
   const remaining = MAX_MESSAGE_LENGTH - draft.length;
 
   return (
     <div className="flex flex-1 flex-col">
       <LevelHeading level={session.level} />
 
-      <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 border-y border-stone-800/70 py-3 text-sm">
-        <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-stone-400">
-          <span className="text-stone-100">{session.attemptCount}</span>{" "}
+      <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 border-y border-[#1a1e23] py-3 text-sm">
+        <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#9aa0a6]">
+          <span className="text-white">{session.attemptCount}</span>{" "}
           {session.attemptCount === 1 ? "attempt" : "attempts"}
         </span>
         {session.flagged ? (
-          <span className="text-xs text-amber-500/80">
+          <span className="text-xs text-[rgba(158,254,0,0.8)]">
             pace flagged — slow down or the warden stops answering
           </span>
         ) : null}
@@ -286,7 +308,7 @@ export function LevelChat({
             type="button"
             onClick={onSurrender}
             disabled={surrenderBusy || sending}
-            className="ml-auto rounded-md border border-stone-700 px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-stone-400 transition-colors hover:border-red-800 hover:text-red-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="ml-auto rounded-md border border-[#22272e] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-[#9aa0a6] transition-colors hover:border-[#9efe00] hover:text-[#9efe00] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#9efe00] disabled:cursor-not-allowed disabled:opacity-50"
           >
             Surrender
           </button>
@@ -295,7 +317,7 @@ export function LevelChat({
 
       <div className="flex-1 py-8">
         {attemptTotal === 0 ? (
-          <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-stone-500">
+          <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-[#5f6368]">
             no attempts yet — the seal is intact
           </p>
         ) : (
@@ -305,11 +327,11 @@ export function LevelChat({
         {sending && openForPlay ? (
           <div className="mt-6 flex gap-3" aria-live="polite" aria-busy="true">
             <Avatar />
-            <div className="max-w-[85%] rounded-xl rounded-bl-sm border border-stone-800/80 bg-stone-950/75 px-4 py-3 backdrop-blur-sm sm:max-w-[75%]">
-              <p className="mb-1.5 font-mono text-[10px] uppercase tracking-widest text-amber-400/80">
+            <div className="max-w-[85%] rounded-xl rounded-bl-sm border border-[#1a1e23] bg-[#0d0f12] px-4 py-3 backdrop-blur-sm sm:max-w-[75%]">
+              <p className="mb-1.5 font-mono text-[10px] uppercase tracking-widest text-[rgba(158,254,0,0.8)]">
                 Warden
               </p>
-              <p className="flex items-center gap-3 text-sm leading-6 text-stone-300">
+              <p className="flex items-center gap-3 text-sm leading-6 text-[#d0d7de]">
                 <ThinkingDots />
                 <span>{thinkingHint(elapsedMs)}</span>
               </p>
@@ -321,13 +343,13 @@ export function LevelChat({
       {error !== null ? (
         <p
           role="alert"
-          className="mb-4 rounded-md border border-red-900/60 bg-red-950/60 px-4 py-3 text-sm leading-6 text-red-200"
+          className="mb-4 rounded-md border border-[#22272e] border-l-2 border-l-[#9efe00] bg-[#0d0f12] px-4 py-3 text-sm leading-6 text-[#d0d7de]"
         >
           {error}
         </p>
       ) : null}
 
-      <div className="sticky bottom-0 -mx-6 border-t border-stone-800/80 bg-stone-950/85 px-6 pb-6 pt-4 backdrop-blur">
+      <div className="sticky bottom-0 -mx-6 border-t border-[#1a1e23] bg-[#050607]/85 px-6 pb-6 pt-4 backdrop-blur">
         {openForPlay ? (
           <>
             <LevelTagline level={session.level} />
@@ -335,7 +357,7 @@ export function LevelChat({
             {duplicateNotice !== null ? (
               <p
                 role="status"
-                className="mt-3 rounded-md border border-amber-500/40 bg-amber-500/[0.09] px-4 py-2.5 text-sm text-amber-200"
+                className="mt-3 rounded-md border border-[rgba(158,254,0,0.4)] bg-[rgba(158,254,0,0.09)] px-4 py-2.5 text-sm text-[#adff00]"
               >
                 {duplicateNotice}
               </p>
@@ -360,32 +382,85 @@ export function LevelChat({
                 rows={3}
                 placeholder={identityFor(session.level).placeholder}
                 aria-describedby="composer-help"
-                className="w-full resize-y rounded-xl border border-stone-800 bg-stone-950/80 py-4 pl-4 pr-28 font-sans text-sm leading-7 text-stone-100 placeholder:text-stone-600 focus:border-amber-500/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 disabled:cursor-not-allowed disabled:opacity-50 sm:pr-36"
+                className="w-full resize-y rounded-xl border border-[#1a1e23] bg-[#050607]/80 py-4 pl-4 pr-28 font-sans text-sm leading-7 text-white placeholder:text-[#5f6368] focus:border-[rgba(158,254,0,0.7)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(158,254,0,0.4)] disabled:cursor-not-allowed disabled:opacity-50 sm:pr-36"
               />
               <button
                 type="button"
                 onClick={() => void submit()}
                 disabled={sending || draft.trim() === ""}
                 aria-busy={sending}
-                className="absolute right-3 top-1/2 inline-flex -translate-y-1/2 items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-stone-950 transition-colors hover:bg-amber-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 disabled:cursor-not-allowed disabled:bg-stone-800 disabled:text-stone-500"
+                className="btn-recurse-primary absolute right-3 top-1/2 inline-flex -translate-y-1/2 items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold disabled:cursor-not-allowed"
               >
                 <PaperPlane className="h-4 w-4" />
                 {sending ? "waiting…" : "Send"}
               </button>
             </div>
-            <p id="composer-help" className="mt-3 text-xs text-stone-500">
+            <p id="composer-help" className="mt-3 text-xs text-[#5f6368]">
               Enter sends · Shift+Enter for a new line
               {draft.length >= COUNTER_VISIBLE_FROM ? (
-                <span className={remaining <= 100 ? " text-amber-400" : ""}>
+                <span className={remaining <= 100 ? " text-[#9efe00]" : ""}>
                   {" "}
                   · {remaining} characters left
                 </span>
               ) : null}
             </p>
+
+            <div className="mt-5 rounded-xl border border-[#1a1e23] bg-[#0d0f12]/60 p-4">
+              <label
+                htmlFor="flag"
+                className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#9aa0a6]"
+              >
+                Have the flag? Submit it to break the seal
+              </label>
+              <div className="relative mt-3">
+                <input
+                  id="flag"
+                  type="text"
+                  value={flagDraft}
+                  onChange={(event) => {
+                    setFlagDraft(event.target.value);
+                    if (flagNotice !== null) {
+                      setFlagNotice(null);
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void claim();
+                    }
+                  }}
+                  disabled={claiming}
+                  placeholder="BTB{…}"
+                  aria-describedby="flag-help"
+                  className="w-full rounded-lg border border-[#1a1e23] bg-[#050607]/80 py-3 pl-4 pr-28 font-mono text-sm text-white placeholder:text-[#5f6368] focus:border-[rgba(158,254,0,0.7)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(158,254,0,0.4)] disabled:cursor-not-allowed disabled:opacity-50"
+                />
+                <button
+                  type="button"
+                  onClick={() => void claim()}
+                  disabled={claiming || flagDraft.trim() === ""}
+                  aria-busy={claiming}
+                  className="btn-recurse-primary absolute right-2 top-1/2 inline-flex -translate-y-1/2 items-center rounded-lg px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed"
+                >
+                  {claiming ? "checking…" : "Claim"}
+                </button>
+              </div>
+              {flagNotice !== null ? (
+                <p
+                  role="status"
+                  className="mt-3 rounded-md border border-[#3a1f1f] bg-[#170d0d] px-3 py-2 text-sm text-[#ff8f8f]"
+                >
+                  {flagNotice}
+                </p>
+              ) : (
+                <p id="flag-help" className="mt-3 text-xs text-[#5f6368]">
+                  Extract the flag from the guardian, then submit it here to break the seal.
+                </p>
+              )}
+            </div>
           </>
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <p className="text-sm text-stone-400">
+            <p className="text-sm text-[#9aa0a6]">
               {session.status === "WON"
                 ? "The seal is broken. The transcript stays."
                 : "This session is closed. The level is still unbeaten."}
@@ -393,7 +468,7 @@ export function LevelChat({
             <button
               type="button"
               onClick={onContinue}
-              className="rounded-md border border-stone-700 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.2em] text-stone-300 transition-colors hover:border-amber-500/70 hover:text-amber-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+              className="rounded-md border border-[#22272e] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.2em] text-[#d0d7de] transition-colors hover:border-[rgba(158,254,0,0.7)] hover:text-[#adff00] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#9efe00]"
             >
               Continue
             </button>

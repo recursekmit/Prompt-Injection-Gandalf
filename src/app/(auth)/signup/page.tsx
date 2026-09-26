@@ -8,6 +8,8 @@ import { MIN_PASSWORD_LENGTH } from "@/lib/validation";
 
 export default function SignupPage() {
   const router = useRouter();
+  const [name, setName] = useState("");
+  const [rollNumber, setRollNumber] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +24,7 @@ export default function SignupPage() {
       const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, name, rollNumber }),
       });
 
       if (!response.ok) {
@@ -49,7 +51,7 @@ export default function SignupPage() {
         return;
       }
 
-      router.push("/");
+      router.push("/challenges");
       router.refresh();
     } finally {
       setBusy(false);
@@ -58,15 +60,43 @@ export default function SignupPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-stone-100">Create account</h1>
-        <p className="text-sm text-stone-400">
+      <header className="flex flex-col gap-2">
+        <span className="terminal-tag">JOIN THE ARCHIVE</span>
+        <h1 className="font-sans text-2xl font-extrabold text-white">Create account</h1>
+        <p className="font-sans text-sm text-[#9aa0a6]">
           PromptGuard needs an account to track your attempts.
         </p>
       </header>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <label className="flex flex-col gap-1.5 text-sm text-stone-300">
+        <label className="flex flex-col gap-1.5 font-mono text-xs uppercase tracking-wide text-[#9aa0a6]">
+          Name
+          <input
+            type="text"
+            name="name"
+            autoComplete="name"
+            required
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            className="input-field"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1.5 font-mono text-xs uppercase tracking-wide text-[#9aa0a6]">
+          Roll number
+          <input
+            type="text"
+            name="rollNumber"
+            placeholder="21BD1A0501"
+            maxLength={10}
+            required
+            value={rollNumber}
+            onChange={(event) => setRollNumber(event.target.value.toUpperCase())}
+            className="input-field"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1.5 font-mono text-xs uppercase tracking-wide text-[#9aa0a6]">
           Email
           <input
             type="email"
@@ -75,11 +105,11 @@ export default function SignupPage() {
             required
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="rounded-lg border border-stone-700 bg-stone-950 px-3 py-2 text-stone-100 outline-none placeholder:text-stone-600 focus:border-amber-500"
+            className="input-field"
           />
         </label>
 
-        <label className="flex flex-col gap-1.5 text-sm text-stone-300">
+        <label className="flex flex-col gap-1.5 font-mono text-xs uppercase tracking-wide text-[#9aa0a6]">
           Password
           <input
             type="password"
@@ -89,32 +119,28 @@ export default function SignupPage() {
             minLength={MIN_PASSWORD_LENGTH}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="rounded-lg border border-stone-700 bg-stone-950 px-3 py-2 text-stone-100 outline-none placeholder:text-stone-600 focus:border-amber-500"
+            className="input-field"
           />
-          <span className="text-xs text-stone-500">
+          <span className="font-sans text-xs text-[#9aa0a6]">
             At least {MIN_PASSWORD_LENGTH} characters.
           </span>
         </label>
 
         {error !== null && (
-          <p role="alert" className="text-sm text-red-400">
+          <p role="alert" className="font-sans text-sm text-[#fca5a5]">
             {error}
           </p>
         )}
 
-        <button
-          type="submit"
-          disabled={busy}
-          className="rounded-lg bg-amber-500 px-4 py-2 font-medium text-stone-950 transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60"
-        >
+        <button type="submit" disabled={busy} className="btn-recurse-primary w-full">
           {busy ? "Creating account…" : "Create account"}
         </button>
       </form>
 
-      <p className="text-sm text-stone-400">
+      <p className="font-sans text-sm text-[#9aa0a6]">
         Already have an account?{" "}
-        <Link href="/login" className="text-amber-500 hover:text-amber-400">
-          Log in
+        <Link href="/login" className="text-[#9efe00] hover:text-[#adff00]">
+          Sign in
         </Link>
       </p>
     </div>

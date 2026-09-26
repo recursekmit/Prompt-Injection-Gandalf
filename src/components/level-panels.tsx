@@ -13,8 +13,8 @@ import type { LevelNumber, LevelProgressDto } from "@/lib/types";
  * screen, the card for a seal already broken, the celebration when one breaks
  * now, and the end of the run.
  *
- * They share a shell and each opens with the same `LevelHeading`, so the six
- * states read as one screen that changed rather than six unrelated pages. Copy
+ * They share a shell and each opens with the same `LevelHeading`, so the three
+ * states read as one screen that changed rather than three unrelated pages. Copy
  * is short and concrete: the player is reading this in a loud room with one eye
  * on the room and one on the laptop.
  *
@@ -32,10 +32,10 @@ function Panel({
 }): React.JSX.Element {
   const border =
     tone === "amber"
-      ? "border-amber-500/40 bg-amber-950/25"
+      ? "border-[rgba(158,254,0,0.4)] bg-[rgba(158,254,0,0.25)]"
       : tone === "locked"
-        ? "border-stone-800/70 bg-stone-950/80"
-        : "border-stone-800/70 bg-stone-950/70";
+        ? "border-[#1a1e23]/70 bg-[#050607]/80"
+        : "border-[#1a1e23]/70 bg-[#050607]/70";
   return (
     <section
       className={`rounded-xl border ${border} px-6 py-8 backdrop-blur-sm sm:px-8 sm:py-10`}
@@ -59,7 +59,7 @@ function PrimaryAction({
       type="button"
       onClick={onClick}
       disabled={disabled ?? false}
-      className="mt-8 inline-flex items-center gap-2 rounded-lg bg-amber-500 px-6 py-3 text-sm font-semibold text-stone-950 transition-colors hover:bg-amber-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-950 disabled:cursor-not-allowed disabled:bg-stone-800 disabled:text-stone-500"
+      className="mt-8 btn-recurse-primary text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#9efe00] focus-visible:ring-offset-2 focus-visible:ring-offset-[#050607]"
     >
       {children}
     </button>
@@ -76,7 +76,7 @@ function Eyebrow({
   return (
     <p
       className={`font-mono text-[11px] uppercase tracking-[0.3em] ${
-        tone === "amber" ? "text-amber-400" : "text-stone-500"
+        tone === "amber" ? "text-[#9efe00]" : "text-[#5f6368]"
       }`}
     >
       {children}
@@ -100,22 +100,22 @@ export function LevelGate({
     <div className="flex flex-col gap-8">
       <LevelHeading level={level} />
       <Panel>
-        <Eyebrow>seal {level} of six · not yet opened</Eyebrow>
+        <Eyebrow>seal {level} of three · not yet opened</Eyebrow>
         <div className="mt-5">
           <LevelTagline level={level} />
         </div>
-        <p className="mt-5 max-w-xl text-sm leading-6 text-stone-400">
-          One guardian keeps one word behind this seal. It will not hand the word
+        <p className="mt-5 max-w-xl text-sm leading-6 text-[#9aa0a6]">
+          One guardian keeps one flag behind this seal. It will not hand the flag
           over — but a careful question can make it say more than it means to.
         </p>
-        <p className="mt-2 max-w-xl text-sm leading-6 text-stone-500">
+        <p className="mt-2 max-w-xl text-sm leading-6 text-[#5f6368]">
           Nothing is lost by trying. Only by giving up.
         </p>
 
         {error !== null ? (
           <p
             role="alert"
-            className="mt-6 rounded-md border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm leading-6 text-red-200"
+            className="mt-6 rounded-md border border-[#22272e] border-l-2 border-l-[#9efe00] bg-[#0d0f12] px-4 py-3 text-sm leading-6 text-[#d0d7de]"
           >
             {error}
           </p>
@@ -127,7 +127,7 @@ export function LevelGate({
           </PrimaryAction>
         </div>
 
-        <p className="mt-4 font-mono text-[11px] uppercase tracking-widest text-stone-600">
+        <p className="mt-4 font-mono text-[11px] uppercase tracking-widest text-[#5f6368]">
           the seals open in order
         </p>
       </Panel>
@@ -152,7 +152,7 @@ export function LockedSeal({
       <LevelHeading level={level} />
       <Panel tone="locked">
         <div className="flex items-start gap-5">
-          <span aria-hidden="true" className="mt-1 text-stone-500">
+          <span aria-hidden="true" className="mt-1 text-[#5f6368]">
             <svg viewBox="0 0 16 16" className="h-8 w-8">
               <rect
                 x="3.5"
@@ -175,22 +175,22 @@ export function LockedSeal({
           </span>
           <div className="min-w-0">
             <Eyebrow>chained</Eyebrow>
-            <h3 className="mt-3 text-2xl font-semibold tracking-tight text-stone-100 sm:text-3xl">
+            <h3 className="mt-3 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
               Seal {level} is locked
             </h3>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-stone-400">
+            <p className="mt-3 max-w-xl text-sm leading-6 text-[#9aa0a6]">
               The seals open one at a time. The next seal that will answer is level{" "}
               {currentLevel}.
             </p>
             {notice !== null ? (
-              <p className="mt-3 max-w-xl text-sm leading-6 text-stone-500">{notice}</p>
+              <p className="mt-3 max-w-xl text-sm leading-6 text-[#5f6368]">{notice}</p>
             ) : null}
 
             <div>
               <PrimaryAction onClick={onGoToCurrent}>Go to level {currentLevel}</PrimaryAction>
             </div>
 
-            <p className="mt-4 font-mono text-[11px] uppercase tracking-widest text-stone-600">
+            <p className="mt-4 font-mono text-[11px] uppercase tracking-widest text-[#5f6368]">
               sealed until level {level - 1} falls
             </p>
           </div>
@@ -200,7 +200,7 @@ export function LockedSeal({
   );
 }
 
-/** A seal already broken, visited later: show the word it gave up. */
+/** A seal already broken, visited later: show the flag it gave up. */
 export function SealBroken({
   level,
   word,
@@ -217,8 +217,8 @@ export function SealBroken({
       <LevelHeading level={level} />
       <Panel>
         <Eyebrow tone="amber">seal broken</Eyebrow>
-        <p className="mt-5 text-sm text-stone-400">The word it kept</p>
-        <p className="mt-2 font-display text-4xl leading-none font-semibold tracking-wide text-amber-200 sm:text-5xl">
+        <p className="mt-5 text-sm text-[#9aa0a6]">The flag it kept</p>
+        <p className="mt-2 font-mono text-xl leading-snug font-semibold tracking-tight break-all text-[#adff00] sm:text-2xl">
           {word}
         </p>
         <div>
@@ -230,8 +230,8 @@ export function SealBroken({
 }
 
 /**
- * The end of the run: six words, in the order they were taken. This is the
- * payoff, so it is the one place all six words are shown together.
+ * The end of the run: three flags, in the order they were taken. This is the
+ * payoff, so it is the one place all three flags are shown together.
  */
 function RunSummary({
   levels,
@@ -241,28 +241,28 @@ function RunSummary({
   const words = levels.filter((entry) => entry.revealedWord !== null);
   return (
     <div className="mt-8">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-col gap-2">
         {words.map((entry) => (
           <span
             key={entry.level}
-            className="inline-flex items-baseline gap-2 rounded-md border border-amber-500/30 bg-amber-500/[0.06] px-3 py-1.5"
+            className="inline-flex items-baseline gap-2 rounded-md border border-[rgba(158,254,0,0.3)] bg-[rgba(158,254,0,0.06)] px-3 py-1.5"
           >
-            <span className="font-mono text-[10px] tracking-widest text-stone-500">
+            <span className="font-mono text-[10px] tracking-widest text-[#5f6368]">
               {String(entry.level).padStart(2, "0")}
             </span>
-            <span className="font-display text-base text-amber-200">{entry.revealedWord}</span>
+            <span className="font-mono text-sm break-all text-[#adff00]">{entry.revealedWord}</span>
           </span>
         ))}
       </div>
-      <p className="mt-4 text-sm leading-6 text-stone-400">
-        Six seals, {words.length} words. Every guardian in the archive has been talked
+      <p className="mt-4 text-sm leading-6 text-[#9aa0a6]">
+        Three seals, {words.length} flags. Every guardian in the archive has been talked
         past.
       </p>
-      <p className="mt-2 text-sm leading-6 text-stone-500">
+      <p className="mt-2 text-sm leading-6 text-[#5f6368]">
         Your attempts per level are kept in{" "}
         <Link
           href="/dashboard"
-          className="text-amber-300 underline-offset-4 hover:underline"
+          className="text-[#9efe00] underline-offset-4 hover:underline"
         >
           your ledger
         </Link>
@@ -272,7 +272,7 @@ function RunSummary({
   );
 }
 
-/** The celebration: a seal just broke, so present the word and the next step. */
+/** The celebration: a seal just broke, so present the flag and the next step. */
 export function SealReveal({
   level,
   word,
@@ -293,36 +293,36 @@ export function SealReveal({
   readonly error: string | null;
   readonly onStartNext: () => void;
 }): React.JSX.Element {
-  const isFinal = level === 6 || everyLevelBeaten;
+  const isFinal = level === 3 || everyLevelBeaten;
   const identity = identityFor(level);
 
   return (
     <section
       role="status"
-      aria-label={`Level ${level}, ${identity.name}, complete. The word was ${word}.`}
-      className="rounded-xl border border-amber-500/50 bg-gradient-to-b from-amber-500/[0.16] to-stone-950/70 px-6 py-8 backdrop-blur-sm sm:px-8 sm:py-10 motion-safe:animate-[reveal_500ms_ease-out]"
+      aria-label={`Level ${level}, ${identity.name}, complete. The flag was ${word}.`}
+      className="rounded-xl border border-[rgba(158,254,0,0.5)] bg-gradient-to-b from-[rgba(158,254,0,0.16)] to-[#050607]/70 px-6 py-8 backdrop-blur-sm sm:px-8 sm:py-10 motion-safe:animate-[reveal_500ms_ease-out]"
     >
       <div className="flex items-start gap-5">
-        <span aria-hidden="true" className="mt-1 text-amber-400">
+        <span aria-hidden="true" className="mt-1 text-[#9efe00]">
           <WardenMark className="h-9 w-9 motion-safe:animate-[crack_700ms_ease-out]" />
         </span>
         <div className="min-w-0 flex-1">
           <Eyebrow tone="amber">
             {isFinal ? "the last seal breaks" : "the seal breaks"}
           </Eyebrow>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-stone-100 sm:text-4xl">
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
             {isFinal ? "Every seal is broken" : `${identity.name} yields`}
           </h2>
-          <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.4em] text-stone-400">
+          <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.4em] text-[#9aa0a6]">
             {identity.title}
           </p>
 
-          <p className="mt-6 text-sm text-stone-400">The word it kept</p>
-          <p className="mt-2 font-display text-5xl leading-none font-semibold tracking-wide text-amber-200 sm:text-6xl">
+          <p className="mt-6 text-sm text-[#9aa0a6]">The flag it kept</p>
+          <p className="mt-2 font-mono text-2xl leading-snug font-semibold tracking-tight break-all text-[#adff00] sm:text-3xl">
             {word}
           </p>
           {revealAttempts === null ? null : (
-            <p className="mt-4 text-sm leading-6 text-stone-400">
+            <p className="mt-4 text-sm leading-6 text-[#9aa0a6]">
               Taken in {revealAttempts} {revealAttempts === 1 ? "attempt" : "attempts"}.
             </p>
           )}
@@ -330,7 +330,7 @@ export function SealReveal({
           {error !== null ? (
             <p
               role="alert"
-              className="mt-6 rounded-md border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm leading-6 text-red-200"
+              className="mt-6 rounded-md border border-[#22272e] border-l-2 border-l-[#9efe00] bg-[#0d0f12] px-4 py-3 text-sm leading-6 text-[#d0d7de]"
             >
               {error}
             </p>
@@ -345,7 +345,7 @@ export function SealReveal({
                   {starting ? "Opening the seal…" : `Start level ${level + 1}`}
                 </PrimaryAction>
               </div>
-              <p className="mt-4 text-xs text-stone-500">
+              <p className="mt-4 text-xs text-[#5f6368]">
                 The transcript below stays until you leave it.
               </p>
             </>
